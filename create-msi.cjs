@@ -7,17 +7,17 @@ const msiCreator = new MSICreator({
   exe: 'DSS',
   name: 'DSS',
   manufacturer: 'Arturo',
-  version: '1.0.0',
+  version: '1.0.1',
   upgradeCode: '63ec1517-f703-47b3-861e-1fe96a2b3451',
   outputDirectory: path.resolve(__dirname, './release/msi'),
   language: 1034,
   cultures: 'es-es',
-  icon: path.resolve(__dirname, './icon.ico'),
+  icon: path.resolve(__dirname, './icono.ico'),
   fileAssociations: [
     {
       extension: 'dss',
       description: 'Digital Score Sheet Match Data',
-      icon: path.resolve(__dirname, './build/file-icon.png')
+      icon: path.resolve(__dirname, './icono.ico')
     }
   ],
   shortcutName: 'DSS',

@@ -11,7 +11,7 @@ function createWindow() {
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    icon: path.join(__dirname, 'icon.ico'),
+    icon: path.join(__dirname, 'icono.ico'),
     title: 'DSS - Digital Score Sheet',
     webPreferences: {
       nodeIntegration: false,

@@ -1,7 +1,7 @@
 {
   "name": "dss",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -48,7 +48,7 @@
         "ext": "dss",
         "name": "DSS Match File",
         "description": "Digital Score Sheet Match Data",
-        "icon": "build/file-icon.png"
+        "icon": "icono.ico"
       }
     ],
     "directories": {
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "icon": "build/icon.png"
+      "icon": "icono.ico"
     },
     "nsis": {
       "artifactName": "DSS-Installer.${ext}",

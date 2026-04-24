@@ -10,7 +10,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       strategies: 'generateSW',
-      includeAssets: ['favicon.svg', 'icons.svg', 'icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['favicon.ico', 'icono.ico', 'icons.svg', 'icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'FIBA Digital Score Sheet',
         short_name: 'DSS',
