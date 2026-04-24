@@ -115,13 +115,19 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', minWidth: '350px' }}>
           
           {/* HCC Equipo A */}
-          <div style={{ width: '50px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
             {hccA && (
               <div style={{ 
-                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.8rem', 
+                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.75rem', 
                 padding: '4px 6px', borderRadius: '4px', fontWeight: 900,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)'
-              }} title="Head Coach Challenge usado">HCC</div>
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)',
+                textAlign: 'center', whiteSpace: 'nowrap'
+              }} title="Head Coach Challenge usado">
+                HCC<br/>
+                <span style={{ fontSize: '0.65rem' }}>
+                  {hccA.period > 4 ? `OT${hccA.period - 4}` : `Q${hccA.period}`} {hccA.minute}'
+                </span>
+              </div>
             )}
           </div>
 
@@ -190,13 +196,19 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           </div>
           
           {/* HCC Equipo B */}
-          <div style={{ width: '50px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
             {hccB && (
               <div style={{ 
-                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.8rem', 
+                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.75rem', 
                 padding: '4px 6px', borderRadius: '4px', fontWeight: 900,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)'
-              }} title="Head Coach Challenge usado">HCC</div>
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)',
+                textAlign: 'center', whiteSpace: 'nowrap'
+              }} title="Head Coach Challenge usado">
+                HCC<br/>
+                <span style={{ fontSize: '0.65rem' }}>
+                  {hccB.period > 4 ? `OT${hccB.period - 4}` : `Q${hccB.period}`} {hccB.minute}'
+                </span>
+              </div>
             )}
           </div>
         </div>
