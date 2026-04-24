@@ -27,6 +27,32 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   onSetTeamPlayers,
   onStartGame,
 }) => {
+  const [showWarning, setShowWarning] = React.useState<string[] | null>(null);
+
+  const validateAndStart = () => {
+    const warnings: string[] = [];
+    
+    const validateTeam = (team: Team, side: string) => {
+      const rosterCount = team.players.filter(p => p.isInRoster).length;
+      const starterCount = team.players.filter(p => p.isStarter).length;
+      const hasCaptain = team.players.some(p => p.isCaptain);
+      const hasCoach = team.headCoach.trim() !== '' || team.assistantCoach.trim() !== '';
+
+      if (rosterCount < 5) warnings.push(`Equipo ${side}: Menos de 5 jugadores en el roster (${rosterCount}).`);
+      if (starterCount !== 5) warnings.push(`Equipo ${side}: Debe haber exactamente 5 titulares (hay ${starterCount}).`);
+      if (!hasCaptain) warnings.push(`Equipo ${side}: No se ha seleccionado un capitán.`);
+      if (!hasCoach) warnings.push(`Equipo ${side}: No hay entrenador (HC o AC) registrado.`);
+    };
+
+    validateTeam(teamA, 'A');
+    validateTeam(teamB, 'B');
+
+    if (warnings.length > 0) {
+      setShowWarning(warnings);
+    } else {
+      onStartGame();
+    }
+  };
   const colors = [
     '#1a237e', // FIBA Blue
     '#b71c1c', // Red
@@ -390,7 +416,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       </div>
     </div>
   );
-
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -405,7 +430,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
 
       <div style={{ textAlign: 'center' }}>
         <button 
-          onClick={onStartGame}
+          onClick={validateAndStart}
           className="btn-primary"
           style={{ 
             fontSize: '1.2rem', 
@@ -417,6 +442,38 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
           COMENZAR PARTIDO OFICIAL
         </button>
       </div>
+
+      {showWarning && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 5000, padding: '20px'
+        }}>
+          <div className="premium-card animate-scale-in" style={{ width: '500px', maxWidth: '100%' }}>
+            <h3 style={{ color: '#d32f2f', marginTop: 0 }}>⚠️ ADVERTENCIAS DE REQUISITOS</h3>
+            <div style={{ background: '#fff8f8', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #d32f2f', marginBottom: '1.5rem' }}>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#333', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                {showWarning.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1.5rem' }}>¿Deseas continuar hacia el juego a pesar de estas advertencias?</p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                onClick={() => setShowWarning(null)} 
+                style={{ flex: 1, padding: '12px', background: '#eee', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+              >
+                VOLVER
+              </button>
+              <button 
+                onClick={() => { setShowWarning(null); onStartGame(); }} 
+                style={{ flex: 1, padding: '12px', background: 'var(--fiba-green)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+              >
+                ACEPTAR Y COMENZAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

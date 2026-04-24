@@ -56,6 +56,14 @@ function App() {
   } | null>(null);
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    message: string;
+    onAccept: () => void;
+  } | null>(null);
+
+  const requestConfirmation = (message: string, onAccept: () => void) => {
+    setConfirmation({ message, onAccept });
+  };
 
   const isCoachAvailable = (side: 'A' | 'B') => {
     const team = side === 'A' ? state.teamA : state.teamB;
@@ -308,9 +316,14 @@ function App() {
             selectedPlayerId={selectedTarget?.side === 'A' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
-                if (pendingAction.type === 'POINT') handleAction(() => addPoint('A', id, pendingAction.value));
-                else if (pendingAction.type === 'FOUL') handleAction(() => addFoul('A', id, pendingAction.value));
-                else if (pendingAction.type === 'ENTRY') { togglePlayerEntry('A', id); setPendingAction(null); }
+                const player = state.teamA.players.find(p => p.id === id);
+                if (pendingAction.type === 'POINT') {
+                  requestConfirmation(`+${pendingAction.value} puntos para ${player?.name} (${state.teamA.name})`, () => handleAction(() => addPoint('A', id, pendingAction.value)));
+                } else if (pendingAction.type === 'FOUL') {
+                  requestConfirmation(`Falta ${pendingAction.value} para ${player?.name} (${state.teamA.name})`, () => handleAction(() => addFoul('A', id, pendingAction.value)));
+                } else if (pendingAction.type === 'ENTRY') {
+                  requestConfirmation(`Cambio/Entrada para ${player?.name} (${state.teamA.name})`, () => { togglePlayerEntry('A', id); setPendingAction(null); });
+                }
               } else if (pendingAction?.type === 'TIMEOUT') {
                 return;
               } else {
@@ -323,9 +336,14 @@ function App() {
             headCoachFouls={state.teamA.headCoachFouls} assistantCoachFouls={state.teamA.assistantCoachFouls}
             onSelectCoach={(role) => {
               if (pendingAction && (pendingAction.type === 'FOUL' || pendingAction.type === 'HCC' || pendingAction.type === 'TIMEOUT')) {
-                if (pendingAction.type === 'FOUL') handleAction(() => addCoachFoul('A', role, pendingAction.value));
-                else if (pendingAction.type === 'HCC') handleAction(() => addHCC('A'));
-                else if (pendingAction.type === 'TIMEOUT') handleAction(() => addTimeout('A'));
+                const name = role === 'HC' ? state.teamA.headCoach : state.teamA.assistantCoach;
+                if (pendingAction.type === 'FOUL') {
+                  requestConfirmation(`Falta ${pendingAction.value} para ${role}: ${name} (${state.teamA.name})`, () => handleAction(() => addCoachFoul('A', role, pendingAction.value)));
+                } else if (pendingAction.type === 'HCC') {
+                  requestConfirmation(`HCC para ${state.teamA.name}`, () => handleAction(() => addHCC('A')));
+                } else if (pendingAction.type === 'TIMEOUT') {
+                  requestConfirmation(`Tiempo Muerto para ${state.teamA.name}`, () => handleAction(() => addTimeout('A')));
+                }
               } else {
                 const isAlreadySelected = selectedTarget?.side === 'A' && selectedTarget.type === 'COACH' && selectedTarget.role === role;
                 setSelectedTarget(isAlreadySelected ? null : { side: 'A', type: 'COACH', role });
@@ -350,29 +368,62 @@ function App() {
             isSelectedPlayerCaptain={selectedPlayer?.isCaptain || false}
             canRequestTimeout={selectedTarget ? !isCoachAvailable(selectedTarget.side) : false}
             onAddPoint={(pts) => {
-              if (selectedTarget?.type === 'PLAYER') handleAction(() => addPoint(selectedTarget.side, selectedTarget.id!, pts));
-              else setPendingAction(prev => (prev?.type === 'POINT' && prev.value === pts) ? null : { type: 'POINT', value: pts });
+              if (selectedTarget?.type === 'PLAYER') {
+                const team = selectedTarget.side === 'A' ? state.teamA : state.teamB;
+                const player = team.players.find(p => p.id === selectedTarget.id);
+                requestConfirmation(`+${pts} puntos para ${player?.name} (${team.name})`, () => handleAction(() => addPoint(selectedTarget.side, selectedTarget.id!, pts)));
+              } else {
+                setPendingAction(prev => (prev?.type === 'POINT' && prev.value === pts) ? null : { type: 'POINT', value: pts });
+              }
             }}
             onAddFoul={(type: PlayerFoulType) => {
-              if (selectedTarget?.type === 'PLAYER') handleAction(() => addFoul(selectedTarget.side, selectedTarget.id!, type));
-              else if (selectedTarget?.type === 'COACH') handleAction(() => addCoachFoul(selectedTarget.side, selectedTarget.role!, type as any));
-              else setPendingAction(prev => (prev?.type === 'FOUL' && prev.value === type) ? null : { type: 'FOUL', value: type });
+              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              if (selectedTarget?.type === 'PLAYER') {
+                const player = team.players.find(p => p.id === selectedTarget.id);
+                requestConfirmation(`Falta ${type} para ${player?.name} (${team.name})`, () => handleAction(() => addFoul(selectedTarget.side, selectedTarget.id!, type)));
+              } else if (selectedTarget?.type === 'COACH') {
+                const name = selectedTarget.role === 'HC' ? team.headCoach : team.assistantCoach;
+                requestConfirmation(`Falta ${type} para ${selectedTarget.role}: ${name} (${team.name})`, () => handleAction(() => addCoachFoul(selectedTarget.side, selectedTarget.role!, type as any)));
+              } else {
+                setPendingAction(prev => (prev?.type === 'FOUL' && prev.value === type) ? null : { type: 'FOUL', value: type });
+              }
             }}
             onAddCoachFoul={(type: CoachFoul) => {
-              if (selectedTarget?.type === 'COACH') handleAction(() => addCoachFoul(selectedTarget.side, selectedTarget.role!, type));
-              else setPendingAction(prev => (prev?.type === 'FOUL' && prev.value === type) ? null : { type: 'FOUL', value: type });
+              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              if (selectedTarget?.type === 'COACH') {
+                const name = selectedTarget.role === 'HC' ? team.headCoach : team.assistantCoach;
+                requestConfirmation(`Falta ${type} para ${selectedTarget.role}: ${name} (${team.name})`, () => handleAction(() => addCoachFoul(selectedTarget.side, selectedTarget.role!, type)));
+              } else {
+                setPendingAction(prev => (prev?.type === 'FOUL' && prev.value === type) ? null : { type: 'FOUL', value: type });
+              }
             }}
             onAddTimeout={() => {
-              if (selectedTarget) handleAction(() => addTimeout(selectedTarget.side));
-              else setPendingAction(prev => prev?.type === 'TIMEOUT' ? null : { type: 'TIMEOUT' });
+              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              if (selectedTarget) {
+                requestConfirmation(`Tiempo Muerto para ${team.name}`, () => handleAction(() => addTimeout(selectedTarget.side)));
+              } else {
+                setPendingAction(prev => prev?.type === 'TIMEOUT' ? null : { type: 'TIMEOUT' });
+              }
             }}
             onAddHCC={() => {
-              if (selectedTarget?.type === 'COACH') handleAction(() => addHCC(selectedTarget.side));
-              else setPendingAction(prev => prev?.type === 'HCC' ? null : { type: 'HCC' });
+              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              if (selectedTarget?.type === 'COACH') {
+                requestConfirmation(`HCC para ${team.name}`, () => handleAction(() => addHCC(selectedTarget.side)));
+              } else {
+                setPendingAction(prev => prev?.type === 'HCC' ? null : { type: 'HCC' });
+              }
             }}
             onToggleEntry={() => {
-              if (selectedTarget?.type === 'PLAYER') { togglePlayerEntry(selectedTarget.side, selectedTarget.id!); setSelectedTarget(null); }
-              else setPendingAction(prev => prev?.type === 'ENTRY' ? null : { type: 'ENTRY' });
+              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              if (selectedTarget?.type === 'PLAYER') { 
+                const player = team.players.find(p => p.id === selectedTarget.id);
+                requestConfirmation(`Cambio/Entrada para ${player?.name} (${team.name})`, () => {
+                  togglePlayerEntry(selectedTarget.side, selectedTarget.id!); 
+                  setSelectedTarget(null); 
+                });
+              } else {
+                setPendingAction(prev => prev?.type === 'ENTRY' ? null : { type: 'ENTRY' });
+              }
             }}
           />
 
@@ -382,9 +433,14 @@ function App() {
             selectedPlayerId={selectedTarget?.side === 'B' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
-                if (pendingAction.type === 'POINT') handleAction(() => addPoint('B', id, pendingAction.value));
-                else if (pendingAction.type === 'FOUL') handleAction(() => addFoul('B', id, pendingAction.value));
-                else if (pendingAction.type === 'ENTRY') { togglePlayerEntry('B', id); setPendingAction(null); }
+                const player = state.teamB.players.find(p => p.id === id);
+                if (pendingAction.type === 'POINT') {
+                  requestConfirmation(`+${pendingAction.value} puntos para ${player?.name} (${state.teamB.name})`, () => handleAction(() => addPoint('B', id, pendingAction.value)));
+                } else if (pendingAction.type === 'FOUL') {
+                  requestConfirmation(`Falta ${pendingAction.value} para ${player?.name} (${state.teamB.name})`, () => handleAction(() => addFoul('B', id, pendingAction.value)));
+                } else if (pendingAction.type === 'ENTRY') {
+                  requestConfirmation(`Cambio/Entrada para ${player?.name} (${state.teamB.name})`, () => { togglePlayerEntry('B', id); setPendingAction(null); });
+                }
               } else if (pendingAction?.type === 'TIMEOUT') {
                 return;
               } else {
@@ -397,9 +453,14 @@ function App() {
             headCoachFouls={state.teamB.headCoachFouls} assistantCoachFouls={state.teamB.assistantCoachFouls}
             onSelectCoach={(role) => {
               if (pendingAction && (pendingAction.type === 'FOUL' || pendingAction.type === 'HCC' || pendingAction.type === 'TIMEOUT')) {
-                if (pendingAction.type === 'FOUL') handleAction(() => addCoachFoul('B', role, pendingAction.value));
-                else if (pendingAction.type === 'HCC') handleAction(() => addHCC('B'));
-                else if (pendingAction.type === 'TIMEOUT') handleAction(() => addTimeout('B'));
+                const name = role === 'HC' ? state.teamB.headCoach : state.teamB.assistantCoach;
+                if (pendingAction.type === 'FOUL') {
+                  requestConfirmation(`Falta ${pendingAction.value} para ${role}: ${name} (${state.teamB.name})`, () => handleAction(() => addCoachFoul('B', role, pendingAction.value)));
+                } else if (pendingAction.type === 'HCC') {
+                  requestConfirmation(`HCC para ${state.teamB.name}`, () => handleAction(() => addHCC('B')));
+                } else if (pendingAction.type === 'TIMEOUT') {
+                  requestConfirmation(`Tiempo Muerto para ${state.teamB.name}`, () => handleAction(() => addTimeout('B')));
+                }
               } else {
                 const isAlreadySelected = selectedTarget?.side === 'B' && selectedTarget.type === 'COACH' && selectedTarget.role === role;
                 setSelectedTarget(isAlreadySelected ? null : { side: 'B', type: 'COACH', role });
@@ -413,6 +474,33 @@ function App() {
 
         <HistoryPanel state={state} onDeleteEvent={deleteEvent} onUpdateEvent={updateEvent} />
         {showGameInfo && renderGameInfoModal()}
+        
+        {confirmation && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 6000, padding: '20px'
+          }}>
+            <div className="premium-card animate-scale-in" style={{ width: '400px', textAlign: 'center' }}>
+              <h3 style={{ marginTop: 0, color: 'var(--fiba-blue)' }}>CONFIRMAR ACCIÓN</h3>
+              <p style={{ fontSize: '1.1rem', margin: '1.5rem 0', fontWeight: 600 }}>{confirmation.message}</p>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button 
+                  onClick={() => setConfirmation(null)} 
+                  style={{ flex: 1, padding: '12px', background: '#eee', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  CANCELAR
+                </button>
+                <button 
+                  onClick={() => { confirmation.onAccept(); setConfirmation(null); }} 
+                  style={{ flex: 1, padding: '12px', background: 'var(--fiba-green)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
+                >
+                  ACEPTAR
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
