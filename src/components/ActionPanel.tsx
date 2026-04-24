@@ -96,23 +96,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Ingreso</span>
-        <button 
-          onClick={onToggleEntry}
-          style={{
-            width: '100%', padding: '12px', 
-            background: pendingAction?.type === 'ENTRY' ? 'var(--fiba-yellow)' : 'rgba(255,255,255,0.5)', 
-            color: '#333', 
-            border: pendingAction?.type === 'ENTRY' ? '2px solid var(--fiba-yellow)' : '2px dashed rgba(0,0,0,0.15)', 
-            borderRadius: '8px', fontWeight: 800,
-            cursor: 'pointer',
-            boxShadow: pendingAction?.type === 'ENTRY' ? '0 0 10px var(--fiba-yellow)' : 'none'
-          }}
-        >
-          MARCAR ENTRADA (X)
-        </button>
-      </div>
+
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Faltas</span>

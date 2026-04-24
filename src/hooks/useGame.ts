@@ -377,12 +377,35 @@ export const useGame = () => {
     setState((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
-      const updatedPlayers = team.players.map(p =>
-        p.id === playerId
-          ? { ...p, hasEntered: !p.hasEntered, entryPeriod: !p.hasEntered ? prev.period : undefined }
-          : p
-      );
-      return { ...prev, [teamKey]: { ...team, players: updatedPlayers } };
+      let newEvent: GameEvent | null = null;
+      let playerName = '';
+
+      const updatedPlayers = team.players.map(p => {
+        if (p.id === playerId) {
+          playerName = p.name;
+          const willEnter = !p.hasEntered;
+          if (willEnter) {
+            newEvent = {
+              id: Math.random().toString(36).substr(2, 9),
+              timestamp: new Date().toISOString(),
+              period: prev.period,
+              timeRemaining: formatTime(prev.timer),
+              teamSide,
+              playerId,
+              type: 'ENTRY',
+              description: 'Ingreso al campo',
+            };
+          }
+          return { ...p, hasEntered: willEnter, entryPeriod: willEnter ? prev.period : undefined };
+        }
+        return p;
+      });
+
+      return { 
+        ...prev, 
+        [teamKey]: { ...team, players: updatedPlayers },
+        history: newEvent ? [newEvent as GameEvent, ...prev.history] : prev.history
+      };
     });
   }, []);
 
