@@ -331,8 +331,19 @@ function App() {
                 return;
               } else {
                 const isAlreadySelected = selectedTarget?.side === 'A' && selectedTarget.type === 'PLAYER' && selectedTarget.id === id;
-                setSelectedTarget(isAlreadySelected ? null : { side: 'A', type: 'PLAYER', id });
-                setPendingAction(null);
+                if (isAlreadySelected) {
+                  setSelectedTarget(null);
+                } else {
+                  const player = state.teamA.players.find(p => p.id === id);
+                  setSelectedTarget({ side: 'A', type: 'PLAYER', id });
+                  setPendingAction(null);
+                  if (player && !player.hasEntered && !player.isStarter) {
+                    requestConfirmation(
+                      `${player.name} no ha ingresado al partido. ¿Registrar su entrada?`,
+                      () => { togglePlayerEntry('A', id); }
+                    );
+                  }
+                }
               }
             }}
             headCoach={state.teamA.headCoach} assistantCoach={state.teamA.assistantCoach}
@@ -448,8 +459,19 @@ function App() {
                 return;
               } else {
                 const isAlreadySelected = selectedTarget?.side === 'B' && selectedTarget.type === 'PLAYER' && selectedTarget.id === id;
-                setSelectedTarget(isAlreadySelected ? null : { side: 'B', type: 'PLAYER', id });
-                setPendingAction(null);
+                if (isAlreadySelected) {
+                  setSelectedTarget(null);
+                } else {
+                  const player = state.teamB.players.find(p => p.id === id);
+                  setSelectedTarget({ side: 'B', type: 'PLAYER', id });
+                  setPendingAction(null);
+                  if (player && !player.hasEntered && !player.isStarter) {
+                    requestConfirmation(
+                      `${player.name} no ha ingresado al partido. ¿Registrar su entrada?`,
+                      () => { togglePlayerEntry('B', id); }
+                    );
+                  }
+                }
               }
             }}
             headCoach={state.teamB.headCoach} assistantCoach={state.teamB.assistantCoach}
