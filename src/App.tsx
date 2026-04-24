@@ -57,6 +57,26 @@ function App() {
 
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
+  const isCoachAvailable = (side: 'A' | 'B') => {
+    const team = side === 'A' ? state.teamA : state.teamB;
+    if (!team.headCoach && !team.assistantCoach) return false;
+    
+    // Reglas de descalificación HC
+    const hc_c = team.headCoachFouls.filter(f => f === 'C1').length;
+    const hc_total = team.headCoachFouls.length;
+    const hc_d = team.headCoachFouls.some(f => f === 'D' || f === 'D2');
+    const isHCDisq = hc_d || hc_c >= 2 || hc_total >= 3;
+
+    // Reglas AC
+    const ac_d = team.assistantCoachFouls.some(f => f === 'D' || f === 'D2');
+    const isACDisq = ac_d;
+
+    return !isHCDisq || (!!team.assistantCoach && !isACDisq);
+  };
+
+  const selectedTeam = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+  const selectedPlayer = selectedTarget?.type === 'PLAYER' ? selectedTeam.players.find(p => p.id === selectedTarget.id) : null;
+
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -324,9 +344,11 @@ function App() {
             selectedTargetType={selectedTarget?.type}
             disabled={state.status !== 'PLAYING'}
             pendingAction={pendingAction}
-            selectedPlayerNumber={selectedTarget?.type === 'PLAYER' ? (selectedTarget.side === 'A' ? state.teamA : state.teamB).players.find(p => p.id === selectedTarget.id)?.number : undefined}
+            selectedPlayerNumber={selectedPlayer?.number}
             selectedTeamColor={selectedTarget?.side === 'A' ? state.teamA.color : (selectedTarget?.side === 'B' ? state.teamB.color : undefined)}
             selectedTeamTextColor={selectedTarget?.side === 'A' ? state.teamA.textColor : (selectedTarget?.side === 'B' ? state.teamB.textColor : undefined)}
+            isSelectedPlayerCaptain={selectedPlayer?.isCaptain || false}
+            canRequestTimeout={selectedTarget ? !isCoachAvailable(selectedTarget.side) : false}
             onAddPoint={(pts) => {
               if (selectedTarget?.type === 'PLAYER') handleAction(() => addPoint(selectedTarget.side, selectedTarget.id!, pts));
               else setPendingAction(prev => (prev?.type === 'POINT' && prev.value === pts) ? null : { type: 'POINT', value: pts });

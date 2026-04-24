@@ -18,15 +18,18 @@ interface ActionPanelProps {
   selectedPlayerNumber?: string;
   selectedTeamColor?: string;
   selectedTeamTextColor?: string;
+  isSelectedPlayerCaptain?: boolean;
+  canRequestTimeout?: boolean;
 }
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ 
   selectedPlayerName, selectedSide, onAddPoint, onAddFoul, onAddCoachFoul, onAddTimeout, onAddHCC, onToggleEntry, isCoachSelected, selectedTargetType, pendingAction,
-  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor
+  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout
 }) => {
   const points = [1, 2, 3];
   const playerFouls: PlayerFoulType[] = ['P', 'P1', 'P2', 'P3', 'U2', 'T1', 'D'];
   const coachFouls: CoachFoul[] = ['C1', 'B1', 'D'];
+  const isTOAllowed = isCoachSelected || (isSelectedPlayerCaptain && canRequestTimeout);
 
   return (
     <div style={{ 
@@ -180,11 +183,11 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
             width: '100%', padding: '12px', 
             background: pendingAction?.type === 'TIMEOUT' ? 'var(--fiba-yellow)' : 'var(--fiba-yellow)', 
             color: '#333', border: 'none', borderRadius: '8px', fontWeight: 800,
-            cursor: (selectedTargetType === 'PLAYER') ? 'not-allowed' : 'pointer', 
-            opacity: (selectedTargetType === 'PLAYER') ? 0.3 : 1,
+            cursor: !isTOAllowed ? 'not-allowed' : 'pointer', 
+            opacity: !isTOAllowed ? 0.3 : 1,
             boxShadow: pendingAction?.type === 'TIMEOUT' ? '0 0 10px var(--fiba-yellow)' : 'none'
           }}
-          disabled={selectedTargetType === 'PLAYER'}
+          disabled={!isTOAllowed}
         >
           TIEMPO MUERTO (TO)
         </button>
