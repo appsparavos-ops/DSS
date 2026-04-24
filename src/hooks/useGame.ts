@@ -378,11 +378,9 @@ export const useGame = () => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       let newEvent: GameEvent | null = null;
-      let playerName = '';
 
       const updatedPlayers = team.players.map(p => {
         if (p.id === playerId) {
-          playerName = p.name;
           const willEnter = !p.hasEntered;
           if (willEnter) {
             newEvent = {

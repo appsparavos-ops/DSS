@@ -10,7 +10,6 @@ interface ActionPanelProps {
   onAddCoachFoul: (type: CoachFoul) => void;
   onAddTimeout: () => void;
   onAddHCC: () => void;
-  onToggleEntry: () => void;
   disabled: boolean;
   isCoachSelected: boolean;
   selectedTargetType?: 'PLAYER' | 'COACH' | null;
@@ -23,7 +22,7 @@ interface ActionPanelProps {
 }
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ 
-  selectedPlayerName, selectedSide, onAddPoint, onAddFoul, onAddCoachFoul, onAddTimeout, onAddHCC, onToggleEntry, isCoachSelected, selectedTargetType, pendingAction,
+  selectedPlayerName, selectedSide, onAddPoint, onAddFoul, onAddCoachFoul, onAddTimeout, onAddHCC, isCoachSelected, selectedTargetType, pendingAction,
   selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout
 }) => {
   const points = [1, 2, 3];

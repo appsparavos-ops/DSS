@@ -47,7 +47,7 @@ export interface Team {
   hcc?: HCCRecord;
 }
 
-export type EventType = 'POINT1' | 'POINT2' | 'POINT3' | 'FOUL' | 'TIMEOUT' | 'HCC';
+export type EventType = 'POINT1' | 'POINT2' | 'POINT3' | 'FOUL' | 'TIMEOUT' | 'HCC' | 'ENTRY';
 
 export interface GameEvent {
   id: string;
