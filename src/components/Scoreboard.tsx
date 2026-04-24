@@ -1,10 +1,17 @@
 import React from 'react';
+import JerseyIcon from './JerseyIcon';
+
 
 interface ScoreboardProps {
   teamAName: string;
   teamBName: string;
   logoA?: string;
   logoB?: string;
+  teamAColor?: string;
+  teamATextColor?: string;
+  teamBColor?: string;
+  teamBTextColor?: string;
+
   scoreA: number;
   scoreB: number;
   teamAFouls: number;
@@ -28,6 +35,7 @@ const formatTime = (seconds: number): string => {
 
 const Scoreboard: React.FC<ScoreboardProps> = ({
   teamAName, teamBName, logoA, logoB,
+  teamAColor, teamATextColor, teamBColor, teamBTextColor,
   scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, 
   period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout
 }) => {
@@ -91,8 +99,9 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             {logoA ? (
               <img src={logoA} alt={teamAName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
             ) : (
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'white' }}>{teamAName[0]}</div>
+              <JerseyIcon color={teamAColor || 'var(--fiba-blue)'} numberColor={teamATextColor || '#ffffff'} number="" size={45} />
             )}
+
           </div>
           {renderTeamFoulsAndTO('A', teamAFouls, timeoutsA)}
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
@@ -177,8 +186,9 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             {logoB ? (
               <img src={logoB} alt={teamBName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
             ) : (
-              <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'white' }}>{teamBName[0]}</div>
+              <JerseyIcon color={teamBColor || 'var(--fiba-blue)'} numberColor={teamBTextColor || '#ffffff'} number="" size={45} />
             )}
+
           </div>
         </div>
 

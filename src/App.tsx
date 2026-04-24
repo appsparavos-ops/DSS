@@ -298,7 +298,10 @@ function App() {
 
       <main>
         <Scoreboard 
-          teamAName={state.teamA.name} teamBName={state.teamB.name} logoA={state.teamA.logo} logoB={state.teamB.logo} 
+          teamAName={state.teamA.name} teamBName={state.teamB.name} 
+          logoA={state.teamA.logo} logoB={state.teamB.logo} 
+          teamAColor={state.teamA.color} teamATextColor={state.teamA.textColor}
+          teamBColor={state.teamB.color} teamBTextColor={state.teamB.textColor}
           scoreA={state.teamA.score} scoreB={state.teamB.score} 
           teamAFouls={state.teamA.foulsPerPeriod[Math.min(state.period-1, 3)]} 
           teamBFouls={state.teamB.foulsPerPeriod[Math.min(state.period-1, 3)]} 
