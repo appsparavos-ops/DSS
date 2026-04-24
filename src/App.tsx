@@ -45,6 +45,7 @@ function App() {
 
   // Estados locales para UI
   const [showGameInfo, setShowGameInfo] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -179,6 +180,24 @@ function App() {
         <div style={{ display: 'flex', gap: '1rem' }}>
           <button onClick={() => setIsSaving(false)} style={{ flex: 1, padding: '10px', background: '#eee', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>CANCELAR</button>
           <button onClick={() => { saveGameToLibrary(saveName); setIsSaving(false); setSaveName(''); }} style={{ flex: 1, padding: '10px', background: 'var(--fiba-blue)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>GUARDAR</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderHistoryModal = () => (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 3000, padding: '1rem'
+    }}>
+      <div className="premium-card animate-scale-in" style={{ width: '900px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #eee', paddingBottom: '0.5rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--fiba-blue)' }}>🕒 Historial del Partido</h3>
+          <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+        </div>
+        <div style={{ flex: 1 }}>
+          <HistoryPanel state={state} onDeleteEvent={deleteEvent} onUpdateEvent={updateEvent} />
         </div>
       </div>
     </div>
@@ -395,6 +414,7 @@ function App() {
             selectedTeamTextColor={selectedTarget?.side === 'A' ? state.teamA.textColor : (selectedTarget?.side === 'B' ? state.teamB.textColor : undefined)}
             isSelectedPlayerCaptain={selectedPlayer?.isCaptain || false}
             canRequestTimeout={selectedTarget ? !isCoachAvailable(selectedTarget.side) : false}
+            onOpenHistory={() => setShowHistoryModal(true)}
             onAddPoint={(pts) => {
               if (selectedTarget?.type === 'PLAYER') {
                 const team = selectedTarget.side === 'A' ? state.teamA : state.teamB;
@@ -513,8 +533,8 @@ function App() {
           />
         </div>
 
-        <HistoryPanel state={state} onDeleteEvent={deleteEvent} onUpdateEvent={updateEvent} />
         {showGameInfo && renderGameInfoModal()}
+        {showHistoryModal && renderHistoryModal()}
         
         {confirmation && (
           <div style={{

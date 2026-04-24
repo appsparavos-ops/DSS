@@ -8,7 +8,7 @@ interface HistoryPanelProps {
 }
 
 const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // const [isExpanded, setIsExpanded] = useState(false);
   const [filterTeam, setFilterTeam] = useState<'ALL' | 'A' | 'B'>('ALL');
   const [filterPlayer, setFilterPlayer] = useState<string>('ALL');
   const [filterType, setFilterType] = useState<string>('ALL');
@@ -47,20 +47,8 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
   };
 
   return (
-    <section className="premium-card animate-fade-in" style={{ marginTop: '2rem' }}>
-      <div 
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', cursor: 'pointer' }}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <h3 style={{ color: 'var(--fiba-blue)', margin: 0 }}>📜 HISTORIAL DE ACCIONES {isExpanded ? '▲' : '▼'}</h3>
-        <span style={{ fontSize: '0.8rem', background: '#eee', padding: '2px 8px', borderRadius: '12px' }}>
-          {filteredEvents.length} eventos
-        </span>
-      </div>
-
-      {isExpanded && (
-        <>
-          {/* Barra de Filtros */}
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Barra de Filtros */}
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '1rem', background: '#f8f9fa', borderRadius: '8px' }}>
             <div style={{ flex: 1, minWidth: '150px' }}>
               <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#888', marginBottom: '4px' }}>EQUIPO</label>
@@ -215,18 +203,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
               </div>
             )}
           </div>
-        </>
-      )}
-
-      <style>{`
-        .history-row:hover { background: #fcfcfc; }
-        .btn-icon {
-          width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer;
-          display: flex; alignItems: center; justifyContent: center; transition: all 0.2s;
-        }
-        .btn-icon:hover { transform: translateY(-2px); filter: brightness(0.9); }
-      `}</style>
-    </section>
+    </div>
   );
 };
 

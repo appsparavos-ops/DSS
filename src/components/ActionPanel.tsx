@@ -19,11 +19,12 @@ interface ActionPanelProps {
   selectedTeamTextColor?: string;
   isSelectedPlayerCaptain?: boolean;
   canRequestTimeout?: boolean;
+  onOpenHistory: () => void;
 }
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ 
   selectedPlayerName, selectedSide, onAddPoint, onAddFoul, onAddCoachFoul, onAddTimeout, onAddHCC, isCoachSelected, selectedTargetType, pendingAction,
-  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout
+  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout, onOpenHistory
 }) => {
   const points = [1, 2, 3];
   const playerFouls: PlayerFoulType[] = ['P', 'P1', 'P2', 'P3', 'U2', 'T1', 'D'];
@@ -45,6 +46,20 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
       position: 'sticky',
       top: '20px'
     }}>
+      <button 
+        onClick={onOpenHistory}
+        style={{
+          width: '100%', padding: '12px', 
+          background: '#f0f0f0', color: '#555', border: '1px solid #ddd', borderRadius: '8px', 
+          fontWeight: 800, cursor: 'pointer', marginBottom: '5px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          transition: 'all 0.2s'
+        }}
+        className="action-btn"
+      >
+        📜 VER HISTORIAL
+      </button>
+
       <div style={{ textAlign: 'center' }}>
         <h4 style={{ margin: '0 0 5px 0', color: '#888', fontSize: '0.75rem', textTransform: 'uppercase' }}>Jugador Seleccionado</h4>
         <div style={{ 

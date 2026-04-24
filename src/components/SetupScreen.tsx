@@ -38,7 +38,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       const hasCaptain = team.players.some(p => p.isCaptain);
       const hasCoach = team.headCoach.trim() !== '' || team.assistantCoach.trim() !== '';
       
-      const rosterPlayers = team.players.filter(p => p.isInRoster);
+      const rosterPlayers = team.players.filter(p => p.isInRoster && p.name.trim() !== '');
       const rosterNumbers = rosterPlayers.map(p => p.number.trim()).filter(n => n !== '');
       const hasDuplicateNumbers = new Set(rosterNumbers).size !== rosterNumbers.length;
       const hasMissingNumbers = rosterPlayers.some(p => p.number.trim() === '');
@@ -77,7 +77,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   const [activeTabB, setActiveTabB] = React.useState<'JERSEY' | 'NUMBER'>('JERSEY');
 
   const renderTeamSetup = (side: 'A' | 'B', team: Team) => {
-    const rosterNumbers = team.players.filter(p => p.isInRoster && p.number.trim() !== '').map(p => p.number.trim());
+    const rosterNumbers = team.players.filter(p => p.isInRoster && p.name.trim() !== '' && p.number.trim() !== '').map(p => p.number.trim());
     const duplicateNumbers = new Set(rosterNumbers.filter((num, index) => rosterNumbers.indexOf(num) !== index));
 
     return (
@@ -335,8 +335,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                         width: '100%', 
                         padding: '0.4rem', 
                         textAlign: 'center', 
-                        border: player.isInRoster && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '2px solid #f44336' : '1px solid #eee', 
-                        backgroundColor: player.isInRoster && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '#ffebee' : '#fff',
+                        border: player.isInRoster && player.name.trim() !== '' && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '2px solid #f44336' : '1px solid #eee', 
+                        backgroundColor: player.isInRoster && player.name.trim() !== '' && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '#ffebee' : '#fff',
                         borderRadius: '4px' 
                       }}
                     />
