@@ -43,7 +43,7 @@ const createEmptyTeam = (name: string, color: string): Team => ({
     fouls: [],
     isStarter: false,
     isCaptain: false,
-    isInRoster: true,
+    isInRoster: false,
     hasEntered: false,
   })),
   score: 0,
@@ -58,7 +58,21 @@ export const useGame = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { activeTimeout: null, ...parsed };
+        // Migración: corregir jugadores vacíos que tenían isInRoster: true por el bug inicial
+        const migrateTeam = (team: Team): Team => ({
+          ...team,
+          players: team.players.map(p =>
+            (!p.name.trim() && !p.number.trim() && p.isInRoster)
+              ? { ...p, isInRoster: false, isStarter: false, isCaptain: false }
+              : p
+          )
+        });
+        return {
+          activeTimeout: null,
+          ...parsed,
+          teamA: migrateTeam(parsed.teamA),
+          teamB: migrateTeam(parsed.teamB),
+        };
       } catch (e) {
         console.error('Error al cargar estado:', e);
       }
