@@ -154,7 +154,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
           <img src={team.logo} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '6px' }} />
         ) : (
           <div style={{ width: '48px', height: '48px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <JerseyIcon color={team.color || 'var(--fiba-blue)'} numberColor={team.textColor || '#ffffff'} number="" size={48} />
+            <JerseyIcon color={team.color || 'var(--fiba-blue)'} numberColor={team.textColor || '#ffffff'} number={team.name ? team.name[0].toUpperCase() : ''} size={48} />
           </div>
         )}
         <div style={{ flex: 1 }}>

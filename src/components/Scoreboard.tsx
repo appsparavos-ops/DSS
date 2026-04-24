@@ -99,7 +99,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             {logoA ? (
               <img src={logoA} alt={teamAName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
             ) : (
-              <JerseyIcon color={teamAColor || 'var(--fiba-blue)'} numberColor={teamATextColor || '#ffffff'} number="" size={45} />
+              <JerseyIcon color={teamAColor || 'var(--fiba-blue)'} numberColor={teamATextColor || '#ffffff'} number={teamAName ? teamAName[0].toUpperCase() : ''} size={45} />
             )}
 
           </div>
@@ -186,7 +186,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             {logoB ? (
               <img src={logoB} alt={teamBName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
             ) : (
-              <JerseyIcon color={teamBColor || 'var(--fiba-blue)'} numberColor={teamBTextColor || '#ffffff'} number="" size={45} />
+              <JerseyIcon color={teamBColor || 'var(--fiba-blue)'} numberColor={teamBTextColor || '#ffffff'} number={teamBName ? teamBName[0].toUpperCase() : ''} size={45} />
             )}
 
           </div>
