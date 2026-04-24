@@ -18,6 +18,8 @@ interface ScoreboardProps {
   teamBFouls: number;
   timeoutsA: any[]; // Using any[] for now to avoid import issues if not exported, but it refers to TimeoutRecord[]
   timeoutsB: any[];
+  hccA?: any;
+  hccB?: any;
   period: number;
   timer: number;
   isRunning: boolean;
@@ -36,14 +38,14 @@ const formatTime = (seconds: number): string => {
 const Scoreboard: React.FC<ScoreboardProps> = ({
   teamAName, teamBName, logoA, logoB,
   teamAColor, teamATextColor, teamBColor, teamBTextColor,
-  scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, 
+  scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, hccA, hccB, 
   period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout
 }) => {
   const isFirstHalf = period <= 2;
   const isOT = period >= 5;
   const maxTO = isOT ? 1 : (isFirstHalf ? 2 : 3);
 
-  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[]) => {
+  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[], hcc?: any) => {
     const usedThisHalfTO = isOT 
       ? timeouts.filter(t => t.period === period).length 
       : (isFirstHalf ? timeouts.filter(t => t.period <= 2).length : timeouts.filter(t => t.period >= 3 && t.period <= 4).length);
@@ -62,6 +64,13 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
         </div>
         {/* Timeouts */}
         <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+          {hcc && (
+            <div style={{ 
+              background: '#3f51b5', color: 'white', fontSize: '0.5rem', 
+              padding: '1px 3px', borderRadius: '2px', fontWeight: 900,
+              boxShadow: '0 0 5px #3f51b5', marginRight: '4px'
+            }} title="Head Coach Challenge usado">HCC</div>
+          )}
           {Array.from({ length: maxTO }).map((_, i) => (
             <div key={i} style={{
               width: '7px', height: '7px', borderRadius: '50%',
@@ -103,7 +112,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             )}
 
           </div>
-          {renderTeamFoulsAndTO('A', teamAFouls, timeoutsA)}
+          {renderTeamFoulsAndTO('A', teamAFouls, timeoutsA, hccA)}
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreA}
           </span>
@@ -181,7 +190,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreB}
           </span>
-          {renderTeamFoulsAndTO('B', teamBFouls, timeoutsB)}
+          {renderTeamFoulsAndTO('B', teamBFouls, timeoutsB, hccB)}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {logoB ? (
               <img src={logoB} alt={teamBName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />

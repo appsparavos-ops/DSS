@@ -325,6 +325,7 @@ function App() {
           teamAFouls={state.teamA.foulsPerPeriod[Math.min(state.period-1, 3)]} 
           teamBFouls={state.teamB.foulsPerPeriod[Math.min(state.period-1, 3)]} 
           timeoutsA={state.teamA.timeouts} timeoutsB={state.teamB.timeouts} 
+          hccA={state.teamA.hcc} hccB={state.teamB.hcc}
           period={state.period} timer={state.timer} isRunning={state.isRunning} 
           onToggleTimer={toggleTimer} onAddTimeout={addTimeout} 
           activeTimeout={state.activeTimeout}
