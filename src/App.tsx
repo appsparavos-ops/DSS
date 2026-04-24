@@ -441,18 +441,6 @@ function App() {
                 setPendingAction(prev => prev?.type === 'HCC' ? null : { type: 'HCC' });
               }
             }}
-            onToggleEntry={() => {
-              const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
-              if (selectedTarget?.type === 'PLAYER') { 
-                const player = team.players.find(p => p.id === selectedTarget.id);
-                requestConfirmation(`Cambio/Entrada para ${player?.name} (${team.name})`, () => {
-                  togglePlayerEntry(selectedTarget.side, selectedTarget.id!); 
-                  setSelectedTarget(null); 
-                });
-              } else {
-                setPendingAction(prev => prev?.type === 'ENTRY' ? null : { type: 'ENTRY' });
-              }
-            }}
           />
 
           {/* LADO B */}
