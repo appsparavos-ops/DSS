@@ -7,7 +7,7 @@ const msiCreator = new MSICreator({
   exe: 'DSS',
   name: 'DSS',
   manufacturer: 'Arturo',
-  version: '1.0.1',
+  version: '1.0.2',
   upgradeCode: '63ec1517-f703-47b3-861e-1fe96a2b3451',
   outputDirectory: path.resolve(__dirname, './release/msi'),
   language: 1034,
