@@ -90,7 +90,7 @@ function App() {
       return selectedTarget.role === 'HC' ? `HC: ${team.headCoach}` : `AC: ${team.assistantCoach}`;
     }
     const player = team.players.find(p => p.id === selectedTarget.id);
-    return player ? `#${player.number} ${player.name}` : '';
+    return player ? player.name : '';
   };
 
   const renderGameInfoModal = () => (
