@@ -37,11 +37,18 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       const starterCount = team.players.filter(p => p.isStarter).length;
       const hasCaptain = team.players.some(p => p.isCaptain);
       const hasCoach = team.headCoach.trim() !== '' || team.assistantCoach.trim() !== '';
+      
+      const rosterPlayers = team.players.filter(p => p.isInRoster);
+      const rosterNumbers = rosterPlayers.map(p => p.number.trim()).filter(n => n !== '');
+      const hasDuplicateNumbers = new Set(rosterNumbers).size !== rosterNumbers.length;
+      const hasMissingNumbers = rosterPlayers.some(p => p.number.trim() === '');
 
       if (rosterCount < 5) warnings.push(`Equipo ${side}: Menos de 5 jugadores en el roster (${rosterCount}).`);
       if (starterCount !== 5) warnings.push(`Equipo ${side}: Debe haber exactamente 5 titulares (hay ${starterCount}).`);
       if (!hasCaptain) warnings.push(`Equipo ${side}: No se ha seleccionado un capitán.`);
       if (!hasCoach) warnings.push(`Equipo ${side}: No hay entrenador (HC o AC) registrado.`);
+      if (hasDuplicateNumbers) warnings.push(`Equipo ${side}: Existen números de camiseta duplicados en el roster.`);
+      if (hasMissingNumbers) warnings.push(`Equipo ${side}: Hay jugadores en el roster sin número asignado.`);
     };
 
     validateTeam(teamA, 'A');
@@ -69,7 +76,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   const [activeTabA, setActiveTabA] = React.useState<'JERSEY' | 'NUMBER'>('JERSEY');
   const [activeTabB, setActiveTabB] = React.useState<'JERSEY' | 'NUMBER'>('JERSEY');
 
-  const renderTeamSetup = (side: 'A' | 'B', team: Team) => (
+  const renderTeamSetup = (side: 'A' | 'B', team: Team) => {
+    const rosterNumbers = team.players.filter(p => p.isInRoster && p.number.trim() !== '').map(p => p.number.trim());
+    const duplicateNumbers = new Set(rosterNumbers.filter((num, index) => rosterNumbers.indexOf(num) !== index));
+
+    return (
     <div className="premium-card animate-fade-in" style={{ flex: 1, borderTop: `6px solid ${team.color || 'var(--fiba-blue)'}` }}>
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
         <div style={{ flex: 1 }}>
@@ -320,7 +331,14 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                         }
                         onUpdatePlayer(side, player.id, updates);
                       }}
-                      style={{ width: '100%', padding: '0.4rem', textAlign: 'center', border: '1px solid #eee', borderRadius: '4px' }}
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.4rem', 
+                        textAlign: 'center', 
+                        border: player.isInRoster && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '2px solid #f44336' : '1px solid #eee', 
+                        backgroundColor: player.isInRoster && player.number.trim() && duplicateNumbers.has(player.number.trim()) ? '#ffebee' : '#fff',
+                        borderRadius: '4px' 
+                      }}
                     />
                   </td>
                   <td style={{ padding: '0.25rem' }}>
@@ -413,9 +431,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             />
           </div>
         </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
