@@ -69,13 +69,13 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
           padding: '10px',
           background: '#f8f9fa',
           borderRadius: '8px',
-          minHeight: '45px',
+          height: '60px', /* Altura fija para evitar salto */
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
           {selectedTargetType === 'PLAYER' && selectedPlayerNumber && (
-            <div style={{ marginRight: '10px' }}>
+            <div style={{ marginRight: '10px', width: '40px', height: '40px', flexShrink: 0 }}>
               <JerseyIcon color={selectedTeamColor || '#ccc'} numberColor={selectedTeamTextColor || '#fff'} number={selectedPlayerNumber} size={40} />
             </div>
           )}
