@@ -19,6 +19,11 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+  height: 100%;
+}
+
 body {
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background: radial-gradient(circle at 0% 0%, rgba(0, 85, 164, 0.15) 0%, transparent 50%),
@@ -28,6 +33,10 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+  touch-action: pan-y;
 }
 
 #root {

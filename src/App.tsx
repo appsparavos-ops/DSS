@@ -259,7 +259,7 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: '90%', margin: '0 auto', padding: '1rem 2rem' }}>
+    <div style={{ width: '100%', maxWidth: '100vw', margin: '0 auto', padding: '0.5rem 1rem', boxSizing: 'border-box', overflowX: 'hidden' }}>
       <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div><h1 style={{ color: 'var(--fiba-blue)', fontWeight: 700, fontSize: '1.5rem', margin: 0 }}>FIBA DIGITAL SCORE SHEET</h1><p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>Planilla de Juego Oficial</p></div>
         <div style={{ display: 'flex', gap: '1rem' }}>
