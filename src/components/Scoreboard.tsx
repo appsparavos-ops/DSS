@@ -45,7 +45,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
   const isOT = period >= 5;
   const maxTO = isOT ? 1 : (isFirstHalf ? 2 : 3);
 
-  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[], hcc?: any) => {
+  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[]) => {
     const usedThisHalfTO = isOT 
       ? timeouts.filter(t => t.period === period).length 
       : (isFirstHalf ? timeouts.filter(t => t.period <= 2).length : timeouts.filter(t => t.period >= 3 && t.period <= 4).length);
@@ -64,13 +64,6 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
         </div>
         {/* Timeouts */}
         <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-          {hcc && (
-            <div style={{ 
-              background: '#3f51b5', color: 'white', fontSize: '0.5rem', 
-              padding: '1px 3px', borderRadius: '2px', fontWeight: 900,
-              boxShadow: '0 0 5px #3f51b5', marginRight: '4px'
-            }} title="Head Coach Challenge usado">HCC</div>
-          )}
           {Array.from({ length: maxTO }).map((_, i) => (
             <div key={i} style={{
               width: '7px', height: '7px', borderRadius: '50%',
@@ -112,7 +105,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             )}
 
           </div>
-          {renderTeamFoulsAndTO('A', teamAFouls, timeoutsA, hccA)}
+          {renderTeamFoulsAndTO('A', teamAFouls, timeoutsA)}
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreA}
           </span>
@@ -120,6 +113,18 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
 
         {/* CENTRO: PERIODO - RELOJ - TIMEOUT TIMER */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', minWidth: '350px' }}>
+          
+          {/* HCC Equipo A */}
+          <div style={{ width: '50px', display: 'flex', justifyContent: 'center' }}>
+            {hccA && (
+              <div style={{ 
+                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.8rem', 
+                padding: '4px 6px', borderRadius: '4px', fontWeight: 900,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)'
+              }} title="Head Coach Challenge usado">HCC</div>
+            )}
+          </div>
+
           {/* Timeout Timer Equipo A */}
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
             {activeTimeout?.side === 'A' && (
@@ -183,6 +188,17 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
               </div>
             )}
           </div>
+          
+          {/* HCC Equipo B */}
+          <div style={{ width: '50px', display: 'flex', justifyContent: 'center' }}>
+            {hccB && (
+              <div style={{ 
+                background: 'var(--fiba-yellow)', color: '#000', fontSize: '0.8rem', 
+                padding: '4px 6px', borderRadius: '4px', fontWeight: 900,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)'
+              }} title="Head Coach Challenge usado">HCC</div>
+            )}
+          </div>
         </div>
 
         {/* EQUIPO B: PUNTAJE - FALTAS/TO - ESCUDO */}
@@ -190,7 +206,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreB}
           </span>
-          {renderTeamFoulsAndTO('B', teamBFouls, timeoutsB, hccB)}
+          {renderTeamFoulsAndTO('B', teamBFouls, timeoutsB)}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             {logoB ? (
               <img src={logoB} alt={teamBName} style={{ height: '45px', width: '45px', objectFit: 'contain' }} />
