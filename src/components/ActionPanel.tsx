@@ -85,30 +85,32 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Puntos</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          {points.map(p => (
-            <button 
-              key={p}
-              onClick={() => onAddPoint(p)}
-              style={{
-                flex: 1, padding: '15px', fontSize: '1.2rem', fontWeight: 900,
-                background: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? 'var(--fiba-yellow)' : 'var(--fiba-green)',
-                color: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? '#333' : 'white', 
-                border: 'none',
-                borderRadius: '10px', cursor: 'pointer',
-                transition: 'all 0.2s',
-                boxShadow: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? '0 0 15px var(--fiba-yellow)' : '0 4px 0 #2e7d32',
-                transform: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? 'scale(1.05)' : 'none'
-              }}
-              className="action-btn"
-            >
-              +{p}
-            </button>
-          ))}
+      {!isCoachSelected && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Puntos</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {points.map(p => (
+              <button 
+                key={p}
+                onClick={() => onAddPoint(p)}
+                style={{
+                  flex: 1, padding: '15px', fontSize: '1.2rem', fontWeight: 900,
+                  background: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? 'var(--fiba-yellow)' : 'var(--fiba-green)',
+                  color: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? '#333' : 'white', 
+                  border: 'none',
+                  borderRadius: '10px', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? '0 0 15px var(--fiba-yellow)' : '0 4px 0 #2e7d32',
+                  transform: (pendingAction?.type === 'POINT' && pendingAction.value === p) ? 'scale(1.05)' : 'none'
+                }}
+                className="action-btn"
+              >
+                +{p}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
 
 
