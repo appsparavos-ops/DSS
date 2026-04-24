@@ -321,9 +321,23 @@ function App() {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
                 const player = state.teamA.players.find(p => p.id === id);
                 if (pendingAction.type === 'POINT') {
-                  requestConfirmation(`+${pendingAction.value} puntos para ${player?.name} (${state.teamA.name})`, () => handleAction(() => addPoint('A', id, pendingAction.value)));
+                  const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const msg = needsEntry 
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y sumar +${pendingAction.value} puntos?`
+                    : `+${pendingAction.value} puntos para ${player?.name} (${state.teamA.name})`;
+                  requestConfirmation(msg, () => {
+                    if (needsEntry) togglePlayerEntry('A', id);
+                    handleAction(() => addPoint('A', id, pendingAction.value));
+                  });
                 } else if (pendingAction.type === 'FOUL') {
-                  requestConfirmation(`Falta ${pendingAction.value} para ${player?.name} (${state.teamA.name})`, () => handleAction(() => addFoul('A', id, pendingAction.value)));
+                  const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const msg = needsEntry 
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${pendingAction.value}?`
+                    : `Falta ${pendingAction.value} para ${player?.name} (${state.teamA.name})`;
+                  requestConfirmation(msg, () => {
+                    if (needsEntry) togglePlayerEntry('A', id);
+                    handleAction(() => addFoul('A', id, pendingAction.value));
+                  });
                 } else if (pendingAction.type === 'ENTRY') {
                   requestConfirmation(`Cambio/Entrada para ${player?.name} (${state.teamA.name})`, () => { togglePlayerEntry('A', id); setPendingAction(null); });
                 }
@@ -449,9 +463,23 @@ function App() {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
                 const player = state.teamB.players.find(p => p.id === id);
                 if (pendingAction.type === 'POINT') {
-                  requestConfirmation(`+${pendingAction.value} puntos para ${player?.name} (${state.teamB.name})`, () => handleAction(() => addPoint('B', id, pendingAction.value)));
+                  const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const msg = needsEntry 
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y sumar +${pendingAction.value} puntos?`
+                    : `+${pendingAction.value} puntos para ${player?.name} (${state.teamB.name})`;
+                  requestConfirmation(msg, () => {
+                    if (needsEntry) togglePlayerEntry('B', id);
+                    handleAction(() => addPoint('B', id, pendingAction.value));
+                  });
                 } else if (pendingAction.type === 'FOUL') {
-                  requestConfirmation(`Falta ${pendingAction.value} para ${player?.name} (${state.teamB.name})`, () => handleAction(() => addFoul('B', id, pendingAction.value)));
+                  const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const msg = needsEntry 
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${pendingAction.value}?`
+                    : `Falta ${pendingAction.value} para ${player?.name} (${state.teamB.name})`;
+                  requestConfirmation(msg, () => {
+                    if (needsEntry) togglePlayerEntry('B', id);
+                    handleAction(() => addFoul('B', id, pendingAction.value));
+                  });
                 } else if (pendingAction.type === 'ENTRY') {
                   requestConfirmation(`Cambio/Entrada para ${player?.name} (${state.teamB.name})`, () => { togglePlayerEntry('B', id); setPendingAction(null); });
                 }
