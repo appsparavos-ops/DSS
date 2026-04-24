@@ -191,7 +191,7 @@ function App() {
       background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 3000, padding: '1rem'
     }}>
-      <div className="premium-card animate-scale-in" style={{ width: '900px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div className="premium-card animate-scale-in" style={{ background: '#ffffff', width: '900px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #eee', paddingBottom: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--fiba-blue)' }}>🕒 Historial del Partido</h3>
           <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
