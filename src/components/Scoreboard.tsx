@@ -46,35 +46,42 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
   const maxTO = isOT ? 1 : (isFirstHalf ? 2 : 3);
 
   const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[]) => {
-    const usedThisHalfTO = isOT 
-      ? timeouts.filter(t => t.period === period).length 
-      : (isFirstHalf ? timeouts.filter(t => t.period <= 2).length : timeouts.filter(t => t.period >= 3 && t.period <= 4).length);
+    const halfTimeouts = isOT 
+      ? timeouts.filter(t => t.period === period) 
+      : (isFirstHalf ? timeouts.filter(t => t.period <= 2) : timeouts.filter(t => t.period >= 3 && t.period <= 4));
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: side === 'A' ? 'flex-start' : 'flex-end', minWidth: '80px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: side === 'A' ? 'flex-start' : 'flex-end', minWidth: '80px' }}>
         {/* Faltas de equipo */}
         <div style={{ display: 'flex', gap: '3px' }}>
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} style={{
-              width: '10px', height: '5px', borderRadius: '1px',
+              width: '12px', height: '6px', borderRadius: '2px',
               background: i < fouls ? (fouls >= 4 ? 'var(--fiba-red)' : 'white') : 'rgba(255,255,255,0.2)',
               boxShadow: i < fouls && fouls >= 4 ? '0 0 5px var(--fiba-red)' : 'none'
             }} />
           ))}
         </div>
         {/* Timeouts */}
-        <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-          {Array.from({ length: maxTO }).map((_, i) => (
-            <div key={i} style={{
-              width: '7px', height: '7px', borderRadius: '50%',
-              background: i < usedThisHalfTO ? 'var(--fiba-yellow)' : 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              boxShadow: i < usedThisHalfTO ? '0 0 4px var(--fiba-yellow)' : 'none'
-            }} />
-          ))}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {Array.from({ length: maxTO }).map((_, i) => {
+            const to = halfTimeouts[i];
+            return (
+              <div key={i} style={{
+                width: '18px', height: '18px', borderRadius: '50%',
+                background: to ? 'var(--fiba-yellow)' : 'rgba(255,255,255,0.15)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                boxShadow: to ? '0 0 6px var(--fiba-yellow)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--fiba-blue)', fontSize: '0.75rem', fontWeight: 900
+              }}>
+                {to ? (to.period > 4 ? 'OT' : to.period) : ''}
+              </div>
+            );
+          })}
           <button onClick={() => onAddTimeout(side)} style={{ 
             background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', 
-            fontSize: '0.55rem', padding: '0px 3px', borderRadius: '2px', cursor: 'pointer', fontWeight: 700 
+            fontSize: '0.7rem', padding: '2px 5px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700, marginLeft: '2px' 
           }}>+T</button>
         </div>
       </div>
