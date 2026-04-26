@@ -435,6 +435,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       </div>
     );
   };
+  const [activeTeamTablet, setActiveTeamTablet] = React.useState<'A' | 'B'>('A');
+
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -442,9 +444,30 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         <p style={{ color: 'var(--text-muted)' }}>Configura los equipos antes de comenzar el acta oficial</p>
       </div>
 
-      <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem' }}>
-        {renderTeamSetup('A', teamA)}
-        {renderTeamSetup('B', teamB)}
+      <div className="setup-team-tabs">
+        <button 
+          className={`setup-team-tab ${activeTeamTablet === 'A' ? 'active' : ''}`}
+          onClick={() => setActiveTeamTablet('A')}
+          style={{ background: activeTeamTablet === 'A' ? (teamA.color || 'var(--fiba-blue)') : '#eee', color: activeTeamTablet === 'A' ? (teamA.textColor || '#fff') : '#666' }}
+        >
+          {teamA.name || 'EQUIPO A'}
+        </button>
+        <button 
+          className={`setup-team-tab ${activeTeamTablet === 'B' ? 'active' : ''}`}
+          onClick={() => setActiveTeamTablet('B')}
+          style={{ background: activeTeamTablet === 'B' ? (teamB.color || 'var(--fiba-blue)') : '#eee', color: activeTeamTablet === 'B' ? (teamB.textColor || '#fff') : '#666' }}
+        >
+          {teamB.name || 'EQUIPO B'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem' }} className="setup-teams-container">
+        <div className={`setup-team-wrapper ${activeTeamTablet === 'A' ? 'active-tablet' : 'inactive-tablet'}`} style={{ flex: 1 }}>
+          {renderTeamSetup('A', teamA)}
+        </div>
+        <div className={`setup-team-wrapper ${activeTeamTablet === 'B' ? 'active-tablet' : 'inactive-tablet'}`} style={{ flex: 1 }}>
+          {renderTeamSetup('B', teamB)}
+        </div>
       </div>
 
       <div style={{ textAlign: 'center' }}>

@@ -28,7 +28,8 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
 
   return (
     <div 
-      onClick={onSelect}
+      className="compact-player-row"
+      onClick={isDisqualified ? undefined : onSelect}
       style={{
         display: 'flex',
         flexDirection: side === 'A' ? 'row-reverse' : 'row',
@@ -38,23 +39,25 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
         background: isDisqualified ? 'rgba(255, 241, 240, 0.7)' : (isSelected ? 'rgba(255, 215, 0, 0.15)' : 'rgba(255, 255, 255, 0.4)'),
         border: isDisqualified ? '2px solid var(--fiba-red)' : (isSelected ? '2px solid var(--fiba-yellow)' : '1px solid rgba(255,255,255,0.6)'),
         borderRadius: '6px',
-        cursor: 'pointer',
+        cursor: isDisqualified ? 'not-allowed' : 'pointer',
         transition: 'all 0.2s',
         marginBottom: '2px',
         boxShadow: isDisqualified ? 'none' : (isSelected ? '0 2px 6px rgba(255, 215, 0, 0.2)' : 'none'),
         transform: isSelected ? 'scale(1.005)' : 'none',
-        opacity: isDisqualified && !isSelected ? 0.8 : 1
+        opacity: isDisqualified && !isSelected ? 0.8 : ((player.isStarter || player.hasEntered || isSelected) ? 1 : 0.4)
       }}
     >
-      <JerseyIcon 
-        color={isSelected ? 'var(--fiba-yellow)' : (color || 'var(--fiba-blue)')} 
-        numberColor={isSelected ? '#333' : (textColor || 'white')} 
-        number={player.number}
-        size={36}
-      />
+      <div className="compact-player-jersey-wrapper">
+        <JerseyIcon 
+          color={isSelected ? 'var(--fiba-yellow)' : (isDisqualified ? 'var(--fiba-red)' : (color || 'var(--fiba-blue)'))} 
+          numberColor={isSelected ? '#333' : (textColor || 'white')} 
+          number={player.number}
+          size={36}
+        />
+      </div>
 
       {/* Indicador de entrada (X) */}
-      <div style={{ 
+      <div className="compact-entry-indicator" style={{ 
         width: '18px', 
         height: '18px', 
         display: 'flex', 
@@ -71,7 +74,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
         {(player.isStarter || player.hasEntered) ? 'X' : ''}
       </div>
 
-      <div style={{ 
+      <div className="compact-player-info" style={{ 
         flex: 1, 
         fontWeight: 700, 
         fontSize: '0.9rem', 
@@ -83,7 +86,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
       }}>
         {player.name} {player.isCaptain && <span style={{ fontSize: '0.7rem', opacity: 0.8, fontWeight: 800 }}> (CAP)</span>}
       </div>
-      <div style={{ display: 'flex', gap: '4px', padding: '0 8px' }}>
+      <div className="compact-player-foul-container" style={{ display: 'flex', gap: '4px', padding: '0 8px' }}>
         {Array.from({ length: 5 }).map((_, i) => {
           const foul = player.fouls[i];
           const uCount = player.fouls.filter(f => f.type === 'U2').length;
@@ -106,7 +109,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
           if (!content && !foul) return <div key={i} style={{ width: '20px' }} />;
 
           return (
-            <div key={i} style={{
+            <div className="compact-player-foul-item" key={i} style={{
               minWidth: '20px', height: '20px', borderRadius: '4px',
               background: bgColor,
               color: 'white', fontSize: '0.6rem', fontWeight: 900,
@@ -118,7 +121,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
           );
         })}
       </div>
-      <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#000000', minWidth: '25px', textAlign: 'right' }}>
+      <div className="compact-player-points-display" style={{ fontSize: '1.1rem', fontWeight: 900, color: '#000000', minWidth: '25px', textAlign: 'right' }}>
         {player.points}
       </div>
     </div>
@@ -148,7 +151,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
   onSelectCoach, selectedCoachRole, hcc, side
 }) => {
   return (
-    <div style={{ flex: 2, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div className="compact-team-list-container" style={{ flex: 2, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <h3 style={{ 
         margin: 0, padding: '10px', background: color || 'var(--fiba-blue)', 
         color: textColor || 'white', borderRadius: '8px', textAlign: 'center', fontSize: '1rem',
@@ -157,7 +160,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
         {teamName}
       </h3>
       
-      <div style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: '5px' }}>
+      <div className="player-list-scroll player-list-grid" style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: '5px' }}>
         {[...players]
           .filter(p => p.name || p.number)
           .sort((a, b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
@@ -174,9 +177,10 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
         ))}
       </div>
 
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <div className="coaches-container" style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '5px' }}>
         {headCoach && (
           <div 
+            className="coach-row"
             onClick={() => onSelectCoach('HC')}
             style={{
               padding: '8px 12px', borderRadius: '8px', background: selectedCoachRole === 'HC' ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.4)',
@@ -185,7 +189,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
               flexDirection: side === 'A' ? 'row-reverse' : 'row'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
+            <div className="coach-role" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
               <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#666' }}>HC: {headCoach}</span>
               {hcc && (
                 <div style={{ display: 'flex', gap: '2px' }}>
@@ -194,13 +198,14 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '2px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
+            <div className="coach-fouls" style={{ display: 'flex', gap: '2px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
               {headCoachFouls.map((f, i) => <span key={i} style={{ color: 'var(--fiba-red)', fontWeight: 800, fontSize: '0.8rem' }}>{f}</span>)}
             </div>
           </div>
         )}
         {assistantCoach && (
           <div 
+            className="coach-row"
             onClick={() => onSelectCoach('AC')}
             style={{
               padding: '8px 12px', borderRadius: '8px', background: selectedCoachRole === 'AC' ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.4)',
@@ -209,8 +214,8 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
               flexDirection: side === 'A' ? 'row-reverse' : 'row'
             }}
           >
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#666' }}>AC: {assistantCoach}</span>
-            <div style={{ display: 'flex', gap: '2px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
+            <span className="coach-role" style={{ fontSize: '0.7rem', fontWeight: 800, color: '#666' }}>AC: {assistantCoach}</span>
+            <div className="coach-fouls" style={{ display: 'flex', gap: '2px', flexDirection: side === 'A' ? 'row-reverse' : 'row' }}>
               {assistantCoachFouls.map((f, i) => <span key={i} style={{ color: 'var(--fiba-red)', fontWeight: 800, fontSize: '0.8rem' }}>{f}</span>)}
             </div>
           </div>
