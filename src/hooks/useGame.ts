@@ -11,6 +11,8 @@ import type {
 import { createPlayerFoul, formatPlayerFoul, isPlayerDisqualifiedByFouls } from '../utils/foulRules';
 
 const INITIAL_TIMER = 600; // 10 minutos por cuarto
+export const MAX_PLAYERS = 20; // filas disponibles para cargar jugadores en el armado del partido
+export const ROSTER_LIMIT = 12; // máximo de jugadores en el roster oficial (acta)
 
 const formatTime = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
@@ -28,6 +30,36 @@ const getContrastColor = (hexcolor: string) => {
   return (yiq >= 128) ? '#000000' : '#ffffff';
 };
 
+const createEmptyPlayer = (): Player => ({
+  id: Math.random().toString(36).substr(2, 9),
+  name: '',
+  number: '',
+  license: '',
+  points: 0,
+  fouls: [],
+  isStarter: false,
+  isCaptain: false,
+  isInRoster: false,
+  hasEntered: false,
+});
+
+// Migración al cargar estados guardados (solo en SETUP, para no alterar partidos en juego):
+// - corrige jugadores vacíos que tenían isInRoster: true por el bug inicial
+// - completa la plantilla hasta MAX_PLAYERS (los partidos viejos traían solo 12 filas)
+const migrateGameState = (gs: GameState): GameState => {
+  if (gs.status !== 'SETUP') return gs;
+  const migrateTeam = (team: Team): Team => {
+    const players = team.players.map(p =>
+      (!p.name.trim() && !p.number.trim() && p.isInRoster)
+        ? { ...p, isInRoster: false, isStarter: false, isCaptain: false }
+        : p
+    );
+    while (players.length < MAX_PLAYERS) players.push(createEmptyPlayer());
+    return { ...team, players };
+  };
+  return { ...gs, teamA: migrateTeam(gs.teamA), teamB: migrateTeam(gs.teamB) };
+};
+
 const createEmptyTeam = (name: string, color: string): Team => ({
   name,
   color,
@@ -36,18 +68,7 @@ const createEmptyTeam = (name: string, color: string): Team => ({
   assistantCoach: '',
   headCoachFouls: [],
   assistantCoachFouls: [],
-  players: Array.from({ length: 12 }, () => ({
-    id: Math.random().toString(36).substr(2, 9),
-    name: '',
-    number: '',
-    license: '',
-    points: 0,
-    fouls: [],
-    isStarter: false,
-    isCaptain: false,
-    isInRoster: false,
-    hasEntered: false,
-  })),
+  players: Array.from({ length: MAX_PLAYERS }, createEmptyPlayer),
   score: 0,
   foulsPerPeriod: [0, 0, 0, 0],
   timeouts: [],
@@ -60,21 +81,10 @@ export const useGame = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Migración: corregir jugadores vacíos que tenían isInRoster: true por el bug inicial
-        const migrateTeam = (team: Team): Team => ({
-          ...team,
-          players: team.players.map(p =>
-            (!p.name.trim() && !p.number.trim() && p.isInRoster)
-              ? { ...p, isInRoster: false, isStarter: false, isCaptain: false }
-              : p
-          )
-        });
-        return {
+        return migrateGameState({
           activeTimeout: null,
           ...parsed,
-          teamA: migrateTeam(parsed.teamA),
-          teamB: migrateTeam(parsed.teamB),
-        };
+        });
       } catch (e) {
         console.error('Error al cargar estado:', e);
       }
@@ -563,7 +573,7 @@ export const useGame = () => {
     setState((prev) => {
       const updateStartersAndRoster = (team: Team) => {
         let roster = team.players.filter(p => p.isInRoster);
-        while (roster.length < 12) {
+        while (roster.length < ROSTER_LIMIT) {
           roster.push({
             id: Math.random().toString(36).substr(2, 9),
             name: '',
@@ -577,7 +587,7 @@ export const useGame = () => {
             hasEntered: false,
           });
         }
-        if (roster.length > 12) roster = roster.slice(0, 12);
+        if (roster.length > ROSTER_LIMIT) roster = roster.slice(0, ROSTER_LIMIT);
 
         return {
           ...team,
@@ -655,7 +665,7 @@ export const useGame = () => {
   }, [state]);
 
   const loadGameFromLibrary = useCallback((gameData: GameState) => {
-    setState(gameData);
+    setState(migrateGameState(gameData));
   }, []);
 
   const deleteFromLibrary = useCallback((id: string) => {
@@ -702,7 +712,7 @@ export const useGame = () => {
     if (win.electronAPI) {
       const result = await win.electronAPI.loadMatch();
       if (result.success) {
-        setState(result.data);
+        setState(migrateGameState(result.data));
         addToLibrary(result.data);
         alert('Partido importado y añadido a la biblioteca.');
         return true;
@@ -721,7 +731,7 @@ export const useGame = () => {
           reader.onload = (event: any) => {
             try {
               const data = JSON.parse(event.target.result);
-              setState(data);
+              setState(migrateGameState(data));
               addToLibrary(data);
               alert('Partido importado y añadido a la biblioteca.');
               resolve(true);

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Team, Player } from '../types';
+import { MAX_PLAYERS, ROSTER_LIMIT } from '../hooks/useGame';
 import JerseyIcon from './JerseyIcon';
 
 interface SetupScreenProps {
@@ -233,9 +234,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                       };
                     });
 
-                    // Si hay menos de 12 jugadores, rellenar con espacios vacíos hasta llegar a 12
-                    const newPlayers = [...parsedPlayers];
-                    while (newPlayers.length < 12) {
+                    // Si hay menos de MAX_PLAYERS jugadores, rellenar con espacios vacíos;
+                    // si el CSV trae de más, recortar al máximo
+                    let newPlayers = [...parsedPlayers];
+                    if (newPlayers.length > MAX_PLAYERS) newPlayers = newPlayers.slice(0, MAX_PLAYERS);
+                    while (newPlayers.length < MAX_PLAYERS) {
                       newPlayers.push({
                         id: Math.random().toString(36).substr(2, 9),
                         name: '',
@@ -250,10 +253,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                       });
                     }
 
-                    // Marcar automáticamente los primeros 12 con nombre como parte del roster
+                    // Marcar automáticamente los primeros ROSTER_LIMIT con nombre como parte del roster
                     let selected = 0;
                     newPlayers.forEach(p => {
-                      if (p.name && selected < 12) {
+                      if (p.name && selected < ROSTER_LIMIT) {
                         p.isInRoster = true;
                         selected++;
                       }
@@ -271,10 +274,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             fontWeight: 700, 
             padding: '2px 8px', 
             borderRadius: '10px', 
-            background: team.players.filter(p => p.isInRoster).length <= 12 ? 'var(--fiba-blue)' : '#ff4444',
+            background: team.players.filter(p => p.isInRoster).length <= ROSTER_LIMIT ? 'var(--fiba-blue)' : '#ff4444',
             color: 'white'
           }}>
-            {team.players.filter(p => p.isInRoster).length} / 12 EN ROSTER
+            {team.players.filter(p => p.isInRoster).length} / {ROSTER_LIMIT} EN ROSTER
           </span>
           <span style={{ 
             fontSize: '0.75rem', 
@@ -305,7 +308,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             {team.players.map((player) => {
               const starterCount = team.players.filter(p => p.isStarter).length;
               const isMissingData = !player.name.trim() || !player.number.trim();
-              const atRosterLimit = team.players.filter(p => p.isInRoster).length >= 12;
+              const atRosterLimit = team.players.filter(p => p.isInRoster).length >= ROSTER_LIMIT;
               
               return (
                 <tr key={player.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
