@@ -6,7 +6,8 @@ import HistoryPanel from './components/HistoryPanel';
 import CompactTeamList from './components/CompactTeamList';
 import ActionPanel from './components/ActionPanel';
 import { generatePDF } from './utils/pdfGenerator';
-import type { PlayerFoulType, CoachFoul, PendingAction } from './types';
+import { formatPlayerFoul } from './utils/foulRules';
+import type { PlayerFoulType, CoachFoul, PendingAction, PlayerFoulSelection } from './types';
 
 function App() {
   const { 
@@ -120,6 +121,14 @@ function App() {
     }
     const player = team.players.find(p => p.id === selectedTarget.id);
     return player ? player.name : '';
+  };
+
+  const formatFoulAction = (value: unknown) => {
+    if (value && typeof value === 'object' && 'type' in value) {
+      return formatPlayerFoul(value as PlayerFoulSelection);
+    }
+    if (typeof value === 'string') return value;
+    return '';
   };
 
   const renderGameInfoModal = () => (
@@ -351,9 +360,10 @@ function App() {
                   });
                 } else if (pendingAction.type === 'FOUL') {
                   const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const foulLabel = formatFoulAction(pendingAction.value);
                   const msg = needsEntry 
-                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${pendingAction.value}?`
-                    : `Falta ${pendingAction.value} para ${player?.name} (${state.teamA.name})`;
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${foulLabel}?`
+                    : `Falta ${foulLabel} para ${player?.name} (${state.teamA.name})`;
                   requestConfirmation(msg, () => {
                     if (needsEntry) togglePlayerEntry('A', id);
                     handleAction(() => addFoul('A', id, pendingAction.value));
@@ -386,6 +396,7 @@ function App() {
               if (pendingAction && (pendingAction.type === 'FOUL' || pendingAction.type === 'HCC' || pendingAction.type === 'TIMEOUT')) {
                 const name = role === 'HC' ? state.teamA.headCoach : state.teamA.assistantCoach;
                 if (pendingAction.type === 'FOUL') {
+                  if (typeof pendingAction.value !== 'string') return;
                   requestConfirmation(`Falta ${pendingAction.value} para ${role}: ${name} (${state.teamA.name})`, () => handleAction(() => addCoachFoul('A', role, pendingAction.value)));
                 } else if (pendingAction.type === 'HCC') {
                   requestConfirmation(`HCC para ${state.teamA.name}`, () => handleAction(() => addHCC('A')));
@@ -425,12 +436,14 @@ function App() {
                 setPendingAction(prev => (prev?.type === 'POINT' && prev.value === pts) ? null : { type: 'POINT', value: pts });
               }
             }}
-            onAddFoul={(type: PlayerFoulType) => {
+            onAddFoul={(type: PlayerFoulType | PlayerFoulSelection) => {
               const team = selectedTarget?.side === 'A' ? state.teamA : state.teamB;
+              const foulLabel = formatFoulAction(type);
               if (selectedTarget?.type === 'PLAYER') {
                 const player = team.players.find(p => p.id === selectedTarget.id);
-                requestConfirmation(`Falta ${type} para ${player?.name} (${team.name})`, () => handleAction(() => addFoul(selectedTarget.side, selectedTarget.id!, type)));
+                requestConfirmation(`Falta ${foulLabel} para ${player?.name} (${team.name})`, () => handleAction(() => addFoul(selectedTarget.side, selectedTarget.id!, type)));
               } else if (selectedTarget?.type === 'COACH') {
+                if (typeof type !== 'string') return;
                 const name = selectedTarget.role === 'HC' ? team.headCoach : team.assistantCoach;
                 requestConfirmation(`Falta ${type} para ${selectedTarget.role}: ${name} (${team.name})`, () => handleAction(() => addCoachFoul(selectedTarget.side, selectedTarget.role!, type as any)));
               } else {
@@ -482,9 +495,10 @@ function App() {
                   });
                 } else if (pendingAction.type === 'FOUL') {
                   const needsEntry = player && !player.hasEntered && !player.isStarter;
+                  const foulLabel = formatFoulAction(pendingAction.value);
                   const msg = needsEntry 
-                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${pendingAction.value}?`
-                    : `Falta ${pendingAction.value} para ${player?.name} (${state.teamB.name})`;
+                    ? `${player.name} no ha ingresado. ¿Registrar entrada y marcar falta ${foulLabel}?`
+                    : `Falta ${foulLabel} para ${player?.name} (${state.teamB.name})`;
                   requestConfirmation(msg, () => {
                     if (needsEntry) togglePlayerEntry('B', id);
                     handleAction(() => addFoul('B', id, pendingAction.value));
@@ -517,6 +531,7 @@ function App() {
               if (pendingAction && (pendingAction.type === 'FOUL' || pendingAction.type === 'HCC' || pendingAction.type === 'TIMEOUT')) {
                 const name = role === 'HC' ? state.teamB.headCoach : state.teamB.assistantCoach;
                 if (pendingAction.type === 'FOUL') {
+                  if (typeof pendingAction.value !== 'string') return;
                   requestConfirmation(`Falta ${pendingAction.value} para ${role}: ${name} (${state.teamB.name})`, () => handleAction(() => addCoachFoul('B', role, pendingAction.value)));
                 } else if (pendingAction.type === 'HCC') {
                   requestConfirmation(`HCC para ${state.teamB.name}`, () => handleAction(() => addHCC('B')));

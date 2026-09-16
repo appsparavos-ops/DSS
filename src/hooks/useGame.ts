@@ -5,8 +5,10 @@ import type {
   Player,
   GameEvent,
   PlayerFoulType,
+  PlayerFoulSelection,
   CoachFoul
 } from '../types';
+import { createPlayerFoul, formatPlayerFoul, isPlayerDisqualifiedByFouls } from '../utils/foulRules';
 
 const INITIAL_TIMER = 600; // 10 minutos por cuarto
 
@@ -177,10 +179,12 @@ export const useGame = () => {
     });
   }, []);
 
-  const addFoul = useCallback((teamSide: 'A' | 'B', playerId: string, foulType: PlayerFoulType = 'P') => {
+  const addFoul = useCallback((teamSide: 'A' | 'B', playerId: string, foulSelection: PlayerFoulType | PlayerFoulSelection = 'P') => {
     setState((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
+      const newFoul = createPlayerFoul(foulSelection, prev.period);
+      const foulLabel = formatPlayerFoul(newFoul);
 
       let isDisqualified = false;
       let playerName = '';
@@ -190,13 +194,9 @@ export const useGame = () => {
         if (p.id === playerId) {
           playerName = p.name;
           playerNumber = p.number;
-          const newFouls = [...p.fouls, { type: foulType, period: prev.period }];
-          const uCount = newFouls.filter(f => f.type === 'U2').length;
-          const tCount = newFouls.filter(f => f.type === 'T1').length;
-          const isDoubleTU = uCount >= 2 || tCount >= 2 || (uCount >= 1 && tCount >= 1);
-          const hasD = newFouls.some(f => f.type === 'D');
+          const newFouls = [...p.fouls, newFoul];
 
-          if (newFouls.length >= 5 || isDoubleTU || hasD) {
+          if (isPlayerDisqualifiedByFouls(newFouls)) {
             isDisqualified = true;
           }
           return { ...p, fouls: newFouls };
@@ -224,8 +224,9 @@ export const useGame = () => {
         teamSide,
         playerId,
         type: 'FOUL',
-        subType: foulType,
-        description: `Falta ${foulType}`,
+        subType: newFoul.type,
+        foulPenalty: newFoul.penalty,
+        description: `Falta ${foulLabel}`,
       };
 
       return {
@@ -305,7 +306,11 @@ export const useGame = () => {
             (team as any)[role].push(event.subType as CoachFoul);
           } else if (event.playerId) {
             const player = team.players.find(p => p.id === event.playerId);
-            if (player) player.fouls.push({ type: event.subType as PlayerFoulType, period: event.period });
+            if (player) player.fouls.push({
+              type: event.subType as PlayerFoulType,
+              period: event.period,
+              ...(event.foulPenalty ? { penalty: event.foulPenalty } : {})
+            });
             const periodIndex = Math.min(event.period - 1, 3);
             team.foulsPerPeriod[periodIndex]++;
           }
@@ -350,7 +355,11 @@ export const useGame = () => {
             (team as any)[role].push(event.subType as CoachFoul);
           } else if (event.playerId) {
             const player = team.players.find(p => p.id === event.playerId);
-            if (player) player.fouls.push({ type: event.subType as PlayerFoulType, period: event.period });
+            if (player) player.fouls.push({
+              type: event.subType as PlayerFoulType,
+              period: event.period,
+              ...(event.foulPenalty ? { penalty: event.foulPenalty } : {})
+            });
             const periodIndex = Math.min(event.period - 1, 3);
             team.foulsPerPeriod[periodIndex]++;
           }

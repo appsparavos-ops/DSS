@@ -1,12 +1,13 @@
-import React from 'react';
-import type { PlayerFoulType, CoachFoul, PendingAction } from '../types';
+import React, { useState } from 'react';
+import type { PlayerFoulType, CoachFoul, PendingAction, PlayerFoulSelection } from '../types';
 import JerseyIcon from './JerseyIcon';
+import { formatPlayerFoul, normalizePlayerFoul } from '../utils/foulRules';
 
 interface ActionPanelProps {
   selectedPlayerName?: string;
   selectedSide?: 'A' | 'B' | null;
   onAddPoint: (pts: number) => void;
-  onAddFoul: (type: PlayerFoulType) => void;
+  onAddFoul: (type: PlayerFoulType | PlayerFoulSelection) => void;
   onAddCoachFoul: (type: CoachFoul) => void;
   onAddTimeout: () => void;
   onAddHCC: () => void;
@@ -27,9 +28,81 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
   selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout, onOpenHistory
 }) => {
   const points = [1, 2, 3];
-  const playerFouls: PlayerFoulType[] = ['P', 'P1', 'P2', 'P3', 'U2', 'T1', 'D'];
+  const [openFoulGroup, setOpenFoulGroup] = useState<number | null>(null);
+  const personalFouls: PlayerFoulSelection[] = [
+    { type: 'P' },
+    { type: 'P', penalty: '1' },
+    { type: 'P', penalty: '2' },
+    { type: 'P', penalty: '3' },
+  ];
+  // FIBA 2026: al presionar T se despliegan las 2 categorías de técnica;
+  // al presionar U se despliegan Disruptiva (DI) y Flagrante (FL).
+  const foulGroups: {
+    label: string;
+    tooltip: string;
+    sections: { title: string; subtitle?: string; fouls: PlayerFoulSelection[] }[];
+  }[] = [
+    {
+      label: 'T',
+      tooltip: 'Técnicas: Categoría 1 (conducta) y Categoría 2 (demora)',
+      sections: [
+        {
+          title: 'TÉCNICA CAT. 1 (CONDUCTA)',
+          subtitle: 'Circulada en el acta · Acumula para descalificación',
+          fouls: [
+            { type: 'T', penalty: '1' },
+            { type: 'T', penalty: 'C' },
+          ],
+        },
+        {
+          title: 'T DEMORA CAT. 2',
+          subtitle: 'Sin círculo en el acta · No acumula para descalificación',
+          fouls: [
+            { type: 'T_DELAY', penalty: '1' },
+            { type: 'T_DELAY', penalty: 'C' },
+          ],
+        },
+      ],
+    },
+    {
+      label: 'U',
+      tooltip: 'Antideportivas: Flagrante (FL) y Disruptiva (DI)',
+      sections: [
+        {
+          title: 'FLAGRANTE (FL)',
+          subtitle: 'Circulada en el acta · Acumula para descalificación',
+          fouls: [
+            { type: 'FL', penalty: '1' },
+            { type: 'FL', penalty: '2' },
+            { type: 'FL', penalty: '3' },
+            { type: 'FL', penalty: 'C' },
+          ],
+        },
+        {
+          title: 'DISRUPTIVA (DI)',
+          subtitle: 'No acumula para descalificación',
+          fouls: [
+            { type: 'DI', penalty: '1' },
+            { type: 'DI', penalty: '2' },
+            { type: 'DI', penalty: '3' },
+            { type: 'DI', penalty: 'C' },
+          ],
+        },
+      ],
+    },
+  ];
   const coachFouls: CoachFoul[] = ['C1', 'B1', 'D'];
   const isTOAllowed = isCoachSelected || (isSelectedPlayerCaptain && canRequestTimeout);
+  const isSameFoul = (a: unknown, b: PlayerFoulSelection) => {
+    if (!a || typeof a !== 'object' || !('type' in a)) return false;
+    const left = normalizePlayerFoul(a as PlayerFoulSelection);
+    const right = normalizePlayerFoul(b);
+    return left.type === right.type && left.penalty === right.penalty;
+  };
+  const addPlayerFoul = (foul: PlayerFoulSelection) => {
+    setOpenFoulGroup(null);
+    onAddFoul(foul);
+  };
 
   return (
     <div style={{ 
@@ -115,27 +188,58 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
 
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Faltas</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#aaa', textTransform: 'uppercase' }}>Faltas</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
           {!isCoachSelected ? (
-            playerFouls.map(f => (
+            <>
+            {personalFouls.map(f => (
               <button 
-                key={f}
-                onClick={() => onAddFoul(f)}
+                key={formatPlayerFoul(f)}
+                onClick={() => addPlayerFoul(f)}
                 style={{
                   flex: 1, padding: '12px 5px', fontSize: '0.9rem', fontWeight: 800,
-                  background: (pendingAction?.type === 'FOUL' && pendingAction.value === f) ? 'var(--fiba-yellow)' : (f === 'D' ? 'var(--fiba-red)' : 'rgba(255,255,255,0.5)'), 
-                  color: (pendingAction?.type === 'FOUL' && pendingAction.value === f) ? '#333' : (f === 'D' ? 'white' : '#333'), border: 'none',
+                  background: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, f)) ? 'var(--fiba-yellow)' : 'rgba(255,255,255,0.5)', 
+                  color: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, f)) ? '#333' : '#333', border: 'none',
                   borderRadius: '8px', cursor: 'pointer',
                   transition: 'all 0.2s',
-                  boxShadow: (pendingAction?.type === 'FOUL' && pendingAction.value === f) ? '0 0 10px var(--fiba-yellow)' : 'none',
-                  transform: (pendingAction?.type === 'FOUL' && pendingAction.value === f) ? 'scale(1.05)' : 'none'
+                  boxShadow: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, f)) ? '0 0 10px var(--fiba-yellow)' : 'none',
+                  transform: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, f)) ? 'scale(1.05)' : 'none'
                 }}
                 className="action-btn"
               >
-                {f}
+                {formatPlayerFoul(f)}
               </button>
-            ))
+            ))}
+              {foulGroups.map((group, idx) => (
+                <button 
+                  key={group.label}
+                  onClick={() => setOpenFoulGroup(openFoulGroup === idx ? null : idx)}
+                  title={group.tooltip}
+                  style={{
+                    padding: '12px 5px', fontSize: '0.9rem', fontWeight: 800,
+                    background: openFoulGroup === idx ? 'var(--fiba-yellow)' : 'rgba(255,255,255,0.5)',
+                    color: '#333', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  className="action-btn"
+                >
+                  {group.label}
+                </button>
+              ))}
+              <button 
+                onClick={() => addPlayerFoul({ type: 'D' })}
+                style={{
+                  padding: '12px 5px', fontSize: '0.9rem', fontWeight: 800,
+                  background: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, { type: 'D' })) ? 'var(--fiba-yellow)' : 'var(--fiba-red)',
+                  color: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, { type: 'D' })) ? '#333' : 'white',
+                  border: 'none', borderRadius: '8px', cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                className="action-btn"
+              >
+                D
+              </button>
+            </>
           ) : (
             <>
               {coachFouls.map(f => (
@@ -174,6 +278,44 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
             </>
           )}
         </div>
+        {!isCoachSelected && openFoulGroup !== null && foulGroups[openFoulGroup] && (
+          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {foulGroups[openFoulGroup].sections.map(section => (
+              <div key={section.title}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#333', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  {section.title}
+                </div>
+                {section.subtitle && (
+                  <div style={{ fontSize: '0.62rem', color: '#999', marginBottom: '6px' }}>
+                    {section.subtitle}
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                  {section.fouls.map(f => (
+                    <button
+                      key={formatPlayerFoul(f)}
+                      onClick={() => addPlayerFoul(f)}
+                      title={`${section.title} · Penalidad: ${f.penalty || '—'}`}
+                      style={{
+                        padding: '8px 4px',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        background: (pendingAction?.type === 'FOUL' && isSameFoul(pendingAction.value, f)) ? 'var(--fiba-yellow)' : '#fff',
+                        color: '#333',
+                        border: '1px solid var(--fiba-red)',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                      className="action-btn"
+                    >
+                      {formatPlayerFoul(f)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '20px' }}>

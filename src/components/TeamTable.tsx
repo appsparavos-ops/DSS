@@ -1,5 +1,6 @@
 import React from 'react';
-import type { Player, PlayerFoul, CoachFoul, PlayerFoulType } from '../types';
+import type { Player, PlayerFoul, CoachFoul, PlayerFoulType, PlayerFoulSelection } from '../types';
+import { formatPlayerFoul, isPlayerDisqualifiedByFouls, isSpecialDisqualification } from '../utils/foulRules';
 
 interface TeamTableProps {
   teamName: string;
@@ -11,7 +12,7 @@ interface TeamTableProps {
   players: Player[];
   side: 'A' | 'B';
   onAddPoint: (playerId: string, points: number) => void;
-  onAddFoul: (playerId: string, foulType: PlayerFoulType) => void;
+  onAddFoul: (playerId: string, foulType: PlayerFoulType | PlayerFoulSelection) => void;
   onAddCoachFoul: (role: 'HC' | 'AC', foulType: CoachFoul) => void;
   onToggleEntry: (playerId: string) => void;
 }
@@ -21,14 +22,7 @@ const accentColor = (color?: string, side?: 'A' | 'B') =>
 
 // Reglas de descalificación de JUGADOR
 const isPlayerDisqualified = (fouls: PlayerFoul[]): boolean => {
-  if (fouls.length >= 5) return true;
-  if (fouls.some(f => f.type === 'D')) return true;
-  const u = fouls.filter(f => f.type === 'U2').length;
-  const t = fouls.filter(f => f.type === 'T1').length;
-  if (u >= 2) return true;
-  if (t >= 2) return true;
-  if (t >= 1 && u >= 1) return true;
-  return false;
+  return isPlayerDisqualifiedByFouls(fouls);
 };
 
 // Reglas de descalificación de CUERPO TÉCNICO
@@ -165,21 +159,18 @@ const TeamTable: React.FC<TeamTableProps> = ({
                   <div style={{ display: 'flex', gap: '2px' }}>
                     {Array.from({ length: 5 }).map((_, i) => {
                       const foul = player.fouls[i];
-                      const uCount = player.fouls.filter(f => f.type === 'U2').length;
-                      const tCount = player.fouls.filter(f => f.type === 'T1').length;
-                      const isDoubleTU = uCount >= 2 || tCount >= 2 || (uCount >= 1 && tCount >= 1);
-                      const hasD = player.fouls.some(f => f.type === 'D');
+                      const specialDisq = isSpecialDisqualification(player.fouls);
                       const has5Fouls = player.fouls.length >= 5;
 
-                      let content = foul ? foul.type : '';
+                      let content = foul ? formatPlayerFoul(foul) : '';
                       const lastFoul = player.fouls[player.fouls.length - 1];
                       let bgColor = foul ? getFoulColor(foul.period) : '#efefef';
                       
-                      if (!foul && (isDoubleTU || hasD)) {
+                      if (!foul && specialDisq) {
                         content = 'GD';
                         bgColor = lastFoul ? getFoulColor(lastFoul.period) : '#666';
                       } else if (i === 4 && has5Fouls) {
-                        content = (foul?.type || '') + ' GD';
+                        content = `${foul ? formatPlayerFoul(foul) : ''} GD`;
                       }
 
                       return (
@@ -206,7 +197,7 @@ const TeamTable: React.FC<TeamTableProps> = ({
                     <select
                       onChange={(e) => {
                         if (e.target.value) {
-                          onAddFoul(player.id, e.target.value as PlayerFoulType);
+                          onAddFoul(player.id, JSON.parse(e.target.value));
                           e.target.value = '';
                         }
                       }}
@@ -219,13 +210,23 @@ const TeamTable: React.FC<TeamTableProps> = ({
                       value=""
                     >
                       <option value="" disabled>F▾</option>
-                      <option value="P">P</option>
-                      <option value="P1">P1</option>
-                      <option value="P2">P2</option>
-                      <option value="P3">P3</option>
-                      <option value="U2">U2</option>
-                      <option value="T1">T1</option>
-                      <option value="D">D</option>
+                      <option value='{"type":"P"}'>P</option>
+                      <option value='{"type":"P","penalty":"1"}'>P1</option>
+                      <option value='{"type":"P","penalty":"2"}'>P2</option>
+                      <option value='{"type":"P","penalty":"3"}'>P3</option>
+                      <option value='{"type":"T","penalty":"1"}'>T1</option>
+                      <option value='{"type":"T","penalty":"C"}'>TC</option>
+                      <option value='{"type":"T_DISQUALIFYING","penalty":"1"}'>(T)1</option>
+                      <option value='{"type":"T_DISQUALIFYING","penalty":"C"}'>(T)C</option>
+                      <option value='{"type":"DI","penalty":"1"}'>DI1</option>
+                      <option value='{"type":"DI","penalty":"2"}'>DI2</option>
+                      <option value='{"type":"DI","penalty":"3"}'>DI3</option>
+                      <option value='{"type":"DI","penalty":"C"}'>DIC</option>
+                      <option value='{"type":"FL","penalty":"1"}'>(FL)1</option>
+                      <option value='{"type":"FL","penalty":"2"}'>(FL)2</option>
+                      <option value='{"type":"FL","penalty":"3"}'>(FL)3</option>
+                      <option value='{"type":"FL","penalty":"C"}'>(FL)C</option>
+                      <option value='{"type":"D"}'>D</option>
                     </select>
                   </div>
                 </td>
@@ -335,7 +336,7 @@ const TeamTable: React.FC<TeamTableProps> = ({
                   RESPONSABLE: CAPITÁN ({captain.number})
                 </span>
                 <button 
-                  onClick={() => onAddFoul(captain.id, 'T1')}
+                  onClick={() => onAddFoul(captain.id, { type: 'T', penalty: 'C' })}
                   style={{
                     padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px',
                     border: '1px solid var(--fiba-red)', color: 'var(--fiba-red)',

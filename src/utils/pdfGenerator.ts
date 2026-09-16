@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
-import type { GameState, Team } from '../types';
+import type { GameState, PlayerFoul, Team } from '../types';
+import { isPlayerDisqualifiedByFouls, isSpecialDisqualification, normalizePlayerFoul } from './foulRules';
 
 export const generatePDF = (state: GameState) => {
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -36,6 +37,27 @@ export const generatePDF = (state: GameState) => {
   const getPeriodColor = (p: number): [number, number, number] => {
     if (p === 1 || p === 3) return [200, 0, 0];
     return [0, 0, 180];
+  };
+
+  const drawPlayerFoul = (foul: PlayerFoul, x: number, y: number) => {
+    const normalized = normalizePlayerFoul(foul);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(normalized.label.length > 1 ? 6.2 : 8);
+    doc.text(normalized.label, x, y, { align: 'center' });
+    // Ancho real de la etiqueta para pegar el subíndice (penalidad) a la letra
+    const labelHalfWidth = doc.getTextWidth(normalized.label) / 2;
+
+    if (normalized.circled) {
+      doc.circle(x, y - 1.1, normalized.label.length > 1 ? 2.6 : 2.2);
+    }
+
+    if (normalized.penalty) {
+      doc.setFontSize(4.8);
+      // Subíndice inmediatamente después de la letra, dentro del casillero (6 mm)
+      doc.text(normalized.penalty, x + labelHalfWidth + 0.5, y + 0.9);
+    }
+
+    doc.setFontSize(8);
   };
 
   // ─── HEADER ───
@@ -195,29 +217,27 @@ export const generatePDF = (state: GameState) => {
         }
         doc.setTextColor(0); doc.setDrawColor(0); // Reset color
         cx += colW[3];
-        p.fouls.forEach((f: any, fi: number) => { 
+        p.fouls.forEach((f: PlayerFoul, fi: number) => { 
           if (fi < 5) {
             const fc = getPeriodColor(f.period);
             doc.setTextColor(fc[0], fc[1], fc[2]);
-            doc.text(f.type, cx + fi * 6 + 3, py + 3.5, { align: 'center' }); 
+            drawPlayerFoul(f, cx + fi * 6 + 3, py + 3.5);
           }
         });
 
         // ─── LÓGICA DE GD (DESCALIFICACIÓN) ───
-        const uCount = p.fouls.filter((f: any) => f.type === 'U2').length;
-        const tCount = p.fouls.filter((f: any) => f.type === 'T1').length;
-        const isDoubleTU = uCount >= 2 || tCount >= 2 || (uCount >= 1 && tCount >= 1);
-        const hasD = p.fouls.some((f: any) => f.type === 'D');
+        const isDisqualified = isPlayerDisqualifiedByFouls(p.fouls);
+        const specialDisq = isSpecialDisqualification(p.fouls);
         const has5Fouls = p.fouls.length >= 5;
 
-        if (state.status === 'FINISHED' && p.fouls.length < 5 && !has5Fouls && !isDoubleTU && !hasD) {
+        if (state.status === 'FINISHED' && p.fouls.length < 5 && !isDisqualified) {
           doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
           for (let i = p.fouls.length; i < 5; i++) {
             doc.line(cx + i * 6 + 1.5, py + 2.5, cx + i * 6 + 4.5, py + 2.5);
           }
         }
 
-        if (has5Fouls || isDoubleTU || hasD) {
+        if (isDisqualified) {
           const lastFoul = p.fouls[p.fouls.length - 1];
           const c = lastFoul ? getPeriodColor(lastFoul.period) : [0, 0, 0];
           doc.setTextColor(c[0], c[1], c[2]);
@@ -225,7 +245,7 @@ export const generatePDF = (state: GameState) => {
           if (has5Fouls) {
             doc.setFontSize(5);
             doc.text('GD', cx + 4 * 6 + 5.2, py + 3.5);
-          } else {
+          } else if (specialDisq) {
             doc.setFontSize(7);
             for (let i = p.fouls.length; i < 5; i++) {
               doc.text('GD', cx + i * 6 + 3, py + 3.5, { align: 'center' });

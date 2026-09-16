@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Player, CoachFoul, HCCRecord } from '../types';
 import JerseyIcon from './JerseyIcon';
+import { formatPlayerFoul, isPlayerDisqualifiedByFouls, isSpecialDisqualification } from '../utils/foulRules';
 
 interface CompactPlayerRowProps {
   player: Player;
@@ -17,12 +18,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
     return 'var(--fiba-blue)';
   };
 
-  const uCount = player.fouls.filter(f => f.type === 'U2').length;
-  const tCount = player.fouls.filter(f => f.type === 'T1').length;
-  const isDoubleTU = uCount >= 2 || tCount >= 2 || (uCount >= 1 && tCount >= 1);
-  const hasD = player.fouls.some(f => f.type === 'D');
-  const has5Fouls = player.fouls.length >= 5;
-  const isDisqualified = has5Fouls || isDoubleTU || hasD;
+  const isDisqualified = isPlayerDisqualifiedByFouls(player.fouls);
 
   if (!player.name.trim() && !player.number.trim()) return null;
 
@@ -89,21 +85,18 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
       <div className="compact-player-foul-container" style={{ display: 'flex', gap: '4px', padding: '0 8px' }}>
         {Array.from({ length: 5 }).map((_, i) => {
           const foul = player.fouls[i];
-          const uCount = player.fouls.filter(f => f.type === 'U2').length;
-          const tCount = player.fouls.filter(f => f.type === 'T1').length;
-          const isDoubleTU = uCount >= 2 || tCount >= 2 || (uCount >= 1 && tCount >= 1);
-          const hasD = player.fouls.some(f => f.type === 'D');
+          const specialDisq = isSpecialDisqualification(player.fouls);
           const has5Fouls = player.fouls.length >= 5;
 
-          let content = foul ? foul.type : '';
+          let content = foul ? formatPlayerFoul(foul) : '';
           let bgColor = foul ? getFoulColor(foul.period) : 'transparent';
           
-          if (!foul && i < 5 && (isDoubleTU || hasD)) {
+          if (!foul && i < 5 && specialDisq) {
             content = 'GD';
             const lastFoul = player.fouls[player.fouls.length - 1];
             bgColor = lastFoul ? getFoulColor(lastFoul.period) : '#666';
           } else if (i === 4 && has5Fouls) {
-            content = (foul?.type || '') + ' GD';
+            content = `${foul ? formatPlayerFoul(foul) : ''} GD`;
           }
 
           if (!content && !foul) return <div key={i} style={{ width: '20px' }} />;

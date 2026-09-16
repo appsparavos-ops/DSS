@@ -1,10 +1,29 @@
 // Definiciones básicas de tipos para el Digital Score Sheet
-export type PlayerFoulType = 'P' | 'P1' | 'P2' | 'P3' | 'T1' | 'U2' | 'D';
+export type PlayerFoulPenalty = '1' | '2' | '3' | 'C';
+export type PlayerFoulType =
+  | 'P'
+  | 'P1'
+  | 'P2'
+  | 'P3'
+  | 'T'
+  | 'T1'
+  | 'T_DISQUALIFYING'
+  | 'T_DELAY'
+  | 'DI'
+  | 'FL'
+  | 'U2'
+  | 'D';
+
+export interface PlayerFoulSelection {
+  type: PlayerFoulType;
+  penalty?: PlayerFoulPenalty;
+}
 export type CoachFoul = 'C1' | 'B1' | 'D2' | 'D';
 
 export interface PlayerFoul {
   type: PlayerFoulType;
   period: number;
+  penalty?: PlayerFoulPenalty;
 }
 
 export interface Player {
@@ -57,6 +76,7 @@ export interface GameEvent {
   teamSide: 'A' | 'B';
   type: EventType;
   subType?: PlayerFoulType | CoachFoul;
+  foulPenalty?: PlayerFoulPenalty;
   playerId?: string;
   description: string;
 }
