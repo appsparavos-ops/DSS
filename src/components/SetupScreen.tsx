@@ -61,6 +61,24 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       onStartGame();
     }
   };
+
+  // Exporta los jugadores ingresados del equipo como CSV (mismo formato que la importación)
+  const exportTeamCSV = (side: 'A' | 'B', team: Team) => {
+    const rows = team.players
+      .filter(p => p.name.trim() !== '' || p.number.trim() !== '')
+      .map(p => [p.license || '', p.number, p.name].join(';'));
+    if (rows.length === 0) return;
+    const safeName = (team.name.trim() || `EQUIPO ${side}`).replace(/[\\/:*?"<>|]/g, '_');
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
   const colors = [
     '#1a237e', // FIBA Blue
     '#b71c1c', // Red
@@ -80,6 +98,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   const renderTeamSetup = (side: 'A' | 'B', team: Team) => {
     const rosterNumbers = team.players.filter(p => p.isInRoster && p.name.trim() !== '' && p.number.trim() !== '').map(p => p.number.trim());
     const duplicateNumbers = new Set(rosterNumbers.filter((num, index) => rosterNumbers.indexOf(num) !== index));
+    const hasEnteredPlayers = team.players.some(p => p.name.trim() !== '' || p.number.trim() !== '');
 
     return (
     <div className="premium-card animate-fade-in" style={{ flex: 1, borderTop: `6px solid ${team.color || 'var(--fiba-blue)'}` }}>
@@ -269,6 +288,21 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
               }}
             />
           </label>
+          <button
+            className="btn-small"
+            onClick={() => exportTeamCSV(side, team)}
+            disabled={!hasEnteredPlayers}
+            style={{
+              background: '#f0f0f0',
+              color: '#555',
+              fontSize: '0.7rem',
+              cursor: hasEnteredPlayers ? 'pointer' : 'not-allowed',
+              opacity: hasEnteredPlayers ? 1 : 0.5,
+            }}
+            title="Descarga un CSV con todos los jugadores ingresados (mismo formato de la importación)"
+          >
+            📤 EXPORTAR CSV
+          </button>
           <span style={{ 
             fontSize: '0.75rem', 
             fontWeight: 700, 
