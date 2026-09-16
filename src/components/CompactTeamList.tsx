@@ -156,7 +156,14 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
       <div className="player-list-scroll player-list-grid" style={{ overflowY: 'auto', maxHeight: '60vh', paddingRight: '5px' }}>
         {[...players]
           .filter(p => p.name || p.number)
-          .sort((a, b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0))
+          .sort((a, b) => {
+            // Primero los jugadores con participación, después el resto;
+            // dentro de cada grupo, por número de camiseta
+            const partA = (a.hasEntered || a.isStarter) ? 0 : 1;
+            const partB = (b.hasEntered || b.isStarter) ? 0 : 1;
+            if (partA !== partB) return partA - partB;
+            return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
+          })
           .map(player => (
           <CompactPlayerRow 
             key={player.id} 
