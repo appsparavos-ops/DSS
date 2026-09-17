@@ -667,6 +667,9 @@ export const useGame = () => {
       return {
         ...prev,
         status: 'PLAYING',
+        // Backup online automático: cada partido nuevo genera su código y se
+        // sincroniza solo (el push debounced se dispara con el cambio de estado)
+        syncCode: prev.syncCode || generateMatchCode(),
         teamA: updateStartersAndRoster(prev.teamA),
         teamB: updateStartersAndRoster(prev.teamB)
       };
@@ -728,7 +731,9 @@ export const useGame = () => {
         id: Math.random().toString(36).substr(2, 9),
         name: customName || `${state.teamA.name} vs ${state.teamB.name}`,
         date: new Date().toLocaleString(),
-        data: { ...state, isRunning: false, status: 'SETUP' }
+        // syncCode se descarta: las plantillas se reutilizan para partidos
+        // NUEVOS, y cada partido nuevo debe tener su propio código de backup
+        data: { ...state, isRunning: false, status: 'SETUP', syncCode: undefined }
       }
     ]);
   }, [state]);

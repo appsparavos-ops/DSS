@@ -307,11 +307,13 @@ function App() {
         ) : (
           <div style={{ marginBottom: '1.5rem' }}>
             <p style={{ fontSize: '0.9rem', color: '#444' }}>
-              Activá el backup para que el partido se guarde online automáticamente mientras se juega.
-              Si este dispositivo falla, vas a poder seguir desde otro usando el código del partido.
+              El backup se activa automáticamente al pulsar <b>COMENZAR PARTIDO OFICIAL</b>:
+              el partido se guarda online mientras se juega y, si este dispositivo falla,
+              vas a poder seguir desde otro usando el código del partido.
+              Si querés, también podés activarlo desde ahora para proteger la configuración.
             </p>
             <button onClick={async () => { setBackupBusy(true); await activateBackup(); setBackupBusy(false); }} disabled={backupBusy} className="btn-primary" style={{ width: '100%', background: 'var(--fiba-green)', color: 'white' }}>
-              {backupBusy ? 'ACTIVANDO…' : 'ACTIVAR BACKUP PARA ESTE PARTIDO'}
+              {backupBusy ? 'ACTIVANDO…' : 'ACTIVAR BACKUP DESDE AHORA'}
             </button>
           </div>
         )}
