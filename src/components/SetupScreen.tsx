@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Team, Player } from '../types';
+import type { Team, Player, CatalogTeam } from '../types';
 import { MAX_PLAYERS, ROSTER_LIMIT } from '../hooks/useGame';
 import JerseyIcon from './JerseyIcon';
 
@@ -14,6 +14,10 @@ interface SetupScreenProps {
   onUpdatePlayer: (side: 'A' | 'B', playerId: string, updates: Partial<Player>) => void;
   onSetTeamPlayers: (side: 'A' | 'B', players: Player[]) => void;
   onStartGame: () => void;
+  savedTeams: CatalogTeam[];
+  onSaveTeamToCatalog: (side: 'A' | 'B') => void;
+  onDeleteTeamFromCatalog: (id: string) => void;
+  onApplyTeam: (side: 'A' | 'B', entry: CatalogTeam) => void;
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({
@@ -27,8 +31,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   onUpdatePlayer,
   onSetTeamPlayers,
   onStartGame,
+  savedTeams,
+  onSaveTeamToCatalog,
+  onDeleteTeamFromCatalog,
+  onApplyTeam,
 }) => {
   const [showWarning, setShowWarning] = React.useState<string[] | null>(null);
+  const [teamPickerSide, setTeamPickerSide] = React.useState<'A' | 'B' | null>(null);
 
   const validateAndStart = () => {
     const warnings: string[] = [];
@@ -62,14 +71,28 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     }
   };
 
-  // Exporta los jugadores ingresados del equipo como CSV (mismo formato que la importación)
-  const exportTeamCSV = (side: 'A' | 'B', team: Team) => {
+  // Exporta los jugadores ingresados del equipo como CSV (mismo formato que la importación).
+  // En Electron se guarda en la carpeta de datos "equipos/"; en la web, descarga directa.
+  const exportTeamCSV = async (side: 'A' | 'B', team: Team) => {
     const rows = team.players
       .filter(p => p.name.trim() !== '' || p.number.trim() !== '')
       .map(p => [p.license || '', p.number, p.name].join(';'));
     if (rows.length === 0) return;
     const safeName = (team.name.trim() || `EQUIPO ${side}`).replace(/[\\/:*?"<>|]/g, '_');
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const csv = rows.join('\n');
+
+    const win = window as any;
+    if (win.electronAPI?.saveCsv) {
+      const result = await win.electronAPI.saveCsv(`${safeName}.csv`, csv);
+      if (result.success) {
+        alert(`CSV guardado en:\n${result.filePath}`);
+      } else if (result.error) {
+        alert(`Error al guardar el CSV: ${result.error}`);
+      }
+      return;
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -78,6 +101,27 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const handleSaveTeamToCatalog = (side: 'A' | 'B') => {
+    const team = side === 'A' ? teamA : teamB;
+    const hasData = team.players.some(p => p.name.trim() !== '' || p.number.trim() !== '');
+    if (!hasData) {
+      alert('No hay jugadores ingresados para guardar.');
+      return;
+    }
+    onSaveTeamToCatalog(side);
+    alert(`Equipo "${team.name.trim() || `EQUIPO ${side}`}" guardado en el catálogo.`);
+  };
+
+  const handleApplyTeam = (entry: CatalogTeam) => {
+    if (!teamPickerSide) return;
+    const current = teamPickerSide === 'A' ? teamA : teamB;
+    const hasData = current.players.some(p => p.name.trim() !== '' || p.number.trim() !== '');
+    if (!hasData || window.confirm(`¿Reemplazar los datos actuales del equipo ${teamPickerSide} por "${entry.name}"?`)) {
+      onApplyTeam(teamPickerSide, entry);
+      setTeamPickerSide(null);
+    }
   };
   const colors = [
     '#1a237e', // FIBA Blue
@@ -116,10 +160,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
               padding: '0.75rem', 
               fontSize: '1.2rem', 
               fontWeight: 700,
-              border: '2px solid #eee',
+              border: '2px solid #ccc',
               borderRadius: '8px',
               outline: 'none',
-              color: team.color || 'var(--fiba-blue)'
+              background: team.color || 'var(--fiba-blue)',
+              color: team.textColor || '#ffffff'
             }}
           />
         </div>
@@ -213,9 +258,9 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
         )}
       </div>
 
-      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <h4 style={{ margin: '0', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plantilla de Jugadores</h4>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <label className="btn-small" style={{ background: '#f0f0f0', color: '#555', cursor: 'pointer', fontSize: '0.7rem' }}>
             📥 IMPORTAR CSV
             <input 
@@ -302,6 +347,29 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             title="Descarga un CSV con todos los jugadores ingresados (mismo formato de la importación)"
           >
             📤 EXPORTAR CSV
+          </button>
+          <button
+            className="btn-small"
+            onClick={() => handleSaveTeamToCatalog(side)}
+            disabled={!hasEnteredPlayers}
+            style={{
+              background: '#f0f0f0',
+              color: '#555',
+              fontSize: '0.7rem',
+              cursor: hasEnteredPlayers ? 'pointer' : 'not-allowed',
+              opacity: hasEnteredPlayers ? 1 : 0.5,
+            }}
+            title="Guarda el equipo completo (jugadores, colores y cuerpo técnico) en el catálogo local"
+          >
+            💾 GUARDAR EQUIPO
+          </button>
+          <button
+            className="btn-small"
+            onClick={() => setTeamPickerSide(side)}
+            style={{ background: '#f0f0f0', color: '#555', fontSize: '0.7rem', cursor: 'pointer' }}
+            title="Carga un equipo guardado en el catálogo"
+          >
+            📂 CARGAR EQUIPO
           </button>
           <span style={{ 
             fontSize: '0.75rem', 
@@ -550,6 +618,59 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                 ACEPTAR Y COMENZAR
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {teamPickerSide && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 4500, padding: '1rem'
+        }}>
+          <div className="premium-card animate-scale-in" style={{ width: '600px', maxWidth: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--fiba-blue)' }}>📂 Catálogo de Equipos — cargar en EQUIPO {teamPickerSide}</h3>
+              <button onClick={() => setTeamPickerSide(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+            </div>
+
+            {savedTeams.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem', color: '#999' }}>
+                <p style={{ fontSize: '2.5rem', margin: 0 }}>👥</p>
+                <p>No hay equipos guardados en el catálogo.</p>
+                <p style={{ fontSize: '0.8rem' }}>Usá el botón «💾 GUARDAR EQUIPO» de cada panel para crear uno.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {savedTeams.map(t => {
+                  const playerCount = t.data.players.filter(p => p.name.trim() !== '' || p.number.trim() !== '').length;
+                  return (
+                    <div key={t.id} style={{ padding: '0.9rem 1rem', border: '1px solid #eee', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fcfcfc', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
+                        <div style={{ width: '34px', height: '34px', flexShrink: 0 }}>
+                          <JerseyIcon color={t.data.color || 'var(--fiba-blue)'} numberColor={t.data.textColor || '#fff'} number={t.data.name ? t.data.name[0].toUpperCase() : ''} size={34} />
+                        </div>
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--fiba-blue)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#999' }}>{playerCount} jugador{playerCount === 1 ? '' : 'es'} · Actualizado: {t.updatedAt}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleApplyTeam(t)}
+                          style={{ background: 'var(--fiba-green)', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem' }}
+                        >CARGAR</button>
+                        <button
+                          onClick={() => { if (window.confirm(`¿Eliminar "${t.name}" del catálogo?`)) onDeleteTeamFromCatalog(t.id); }}
+                          style={{ background: '#fff0f0', color: '#ff4444', border: 'none', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}
+                        >🗑️</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button onClick={() => setTeamPickerSide(null)} style={{ width: '100%', marginTop: '1.5rem', padding: '12px', background: '#eee', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>CERRAR</button>
           </div>
         </div>
       )}

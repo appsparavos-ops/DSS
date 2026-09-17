@@ -432,5 +432,20 @@ export const generatePDF = (state: GameState) => {
 
   const safeStr = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `${safeStr(state.competition)}_${safeStr(teamA.name)}_${safeStr(teamB.name)}_${safeStr(state.date)}_${safeStr(state.timeStart)}_${safeStr(state.venue)}.pdf`;
-  doc.save(filename);
+
+  // En Electron se guarda en la carpeta estándar de datos "actas/";
+  // en la web se descarga directamente.
+  const win = window as any;
+  if (win.electronAPI?.savePdf) {
+    const buffer = doc.output('arraybuffer');
+    win.electronAPI.savePdf(filename, buffer).then((result: { success: boolean; filePath?: string; error?: string }) => {
+      if (result.success) {
+        alert(`Acta guardada en:\n${result.filePath}`);
+      } else if (result.error) {
+        alert(`Error al guardar el acta: ${result.error}`);
+      }
+    }).catch(() => doc.save(filename));
+  } else {
+    doc.save(filename);
+  }
 };

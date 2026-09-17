@@ -5,6 +5,32 @@ const fs = require('fs');
 // Determinar si estamos en desarrollo o producción
 const isDev = !app.isPackaged;
 
+// ─── Carpeta de datos estándar de DSS ───────────────────────────────────────
+// Todos los archivos de la app viven en Documentos/DSS:
+//   partidos/    → *.dss (partidos guardados y autoguardado del partido en curso)
+//   actas/       → *.pdf (actas generadas)
+//   equipos/     → *.csv (planteles exportados)
+//   plantillas/  → *.dss exportados desde la biblioteca
+const DATA_DIR = path.join(app.getPath('documents'), 'DSS');
+const DIRS = {
+  partidos: path.join(DATA_DIR, 'partidos'),
+  actas: path.join(DATA_DIR, 'actas'),
+  equipos: path.join(DATA_DIR, 'equipos'),
+  plantillas: path.join(DATA_DIR, 'plantillas'),
+};
+
+const ensureDataDirs = () => {
+  for (const dir of [DATA_DIR, DIRS.partidos, DIRS.actas, DIRS.equipos, DIRS.plantillas]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (e) {
+      console.error('No se pudo crear la carpeta de datos:', dir, e);
+    }
+  }
+};
+
+const sanitizeFileName = (name) => (name || 'archivo').replace(/[\\/:*?"<>|]/g, '_').slice(0, 150);
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1400,
@@ -38,11 +64,17 @@ function createWindow() {
   }
 }
 
-// Handlers para Guardar/Cargar Partidos
-ipcMain.handle('save-match', async (event, gameData, fileName) => {
+// ─── Handlers de archivos ───────────────────────────────────────────────────
+
+// Ruta de la carpeta de datos (para mostrar en la UI si se desea)
+ipcMain.handle('get-data-dir', () => ({ success: true, path: DATA_DIR }));
+
+// Guardar partido con diálogo (subfolder: 'partidos' | 'plantillas')
+ipcMain.handle('save-match', async (event, gameData, fileName, subfolder = 'partidos') => {
+  const dir = DIRS[subfolder] || DIRS.partidos;
   const { filePath } = await dialog.showSaveDialog({
     title: 'Guardar Partido',
-    defaultPath: path.join(app.getPath('documents'), `${fileName || 'partido'}.dss`),
+    defaultPath: path.join(dir, `${sanitizeFileName(fileName)}.dss`),
     filters: [{ name: 'DSS Match Files', extensions: ['dss'] }]
   });
 
@@ -57,9 +89,11 @@ ipcMain.handle('save-match', async (event, gameData, fileName) => {
   return { success: false, cancelled: true };
 });
 
+// Cargar partido con diálogo (abre por defecto en la carpeta de partidos)
 ipcMain.handle('load-match', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: 'Cargar Partido',
+    defaultPath: DIRS.partidos,
     filters: [{ name: 'DSS Match Files', extensions: ['dss'] }],
     properties: ['openFile']
   });
@@ -75,8 +109,42 @@ ipcMain.handle('load-match', async () => {
   return { success: false, cancelled: true };
 });
 
+// Autoguardado silencioso del partido en curso (backup local anti-crash)
+ipcMain.handle('autosave-match', (event, fileName, gameData) => {
+  try {
+    const filePath = path.join(DIRS.partidos, `${sanitizeFileName(fileName)}.dss`);
+    fs.writeFileSync(filePath, JSON.stringify(gameData, null, 2));
+    return { success: true, filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Guardar acta PDF en la carpeta "actas/"
+ipcMain.handle('save-pdf', (event, fileName, arrayBuffer) => {
+  try {
+    const filePath = path.join(DIRS.actas, sanitizeFileName(fileName));
+    fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+    return { success: true, filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Guardar CSV de equipo en la carpeta "equipos/"
+ipcMain.handle('save-csv', (event, fileName, content) => {
+  try {
+    const filePath = path.join(DIRS.equipos, sanitizeFileName(fileName));
+    fs.writeFileSync(filePath, content, 'utf8');
+    return { success: true, filePath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Cuando Electron esté listo, crear la ventana
 app.whenReady().then(() => {
+  ensureDataDirs();
   createWindow();
 
   app.on('activate', () => {
@@ -93,4 +161,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-

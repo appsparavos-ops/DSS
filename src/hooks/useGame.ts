@@ -6,9 +6,12 @@ import type {
   GameEvent,
   PlayerFoulType,
   PlayerFoulSelection,
-  CoachFoul
+  CoachFoul,
+  CatalogTeam
 } from '../types';
 import { createPlayerFoul, formatPlayerFoul, isPlayerDisqualifiedByFouls } from '../utils/foulRules';
+import { STORAGE_KEYS, readJSON, writeJSON, migrateLegacyStorage } from '../services/storage';
+import { generateMatchCode, pushMatch, pullMatch, type SyncStatus } from '../services/sync';
 
 const INITIAL_TIMER = 600; // 10 minutos por cuarto
 export const MAX_PLAYERS = 20; // filas disponibles para cargar jugadores en el armado del partido
@@ -77,17 +80,13 @@ const createEmptyTeam = (name: string, color: string): Team => ({
 
 export const useGame = () => {
   const [state, setState] = useState<GameState>(() => {
-    const saved = localStorage.getItem('dss_game_state');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return migrateGameState({
-          activeTimeout: null,
-          ...parsed,
-        });
-      } catch (e) {
-        console.error('Error al cargar estado:', e);
-      }
+    migrateLegacyStorage();
+    const parsed = readJSON<GameState>(STORAGE_KEYS.gameState);
+    if (parsed) {
+      return migrateGameState({
+        ...parsed,
+        activeTimeout: null,
+      });
     }
     return {
       teamA: createEmptyTeam('EQUIPO A', '#1a237e'),
@@ -112,17 +111,87 @@ export const useGame = () => {
   });
 
   const [savedGames, setSavedGames] = useState<{ id: string; name: string; date: string; data: GameState }[]>(() => {
-    const saved = localStorage.getItem('dss_library');
-    return saved ? JSON.parse(saved) : [];
+    return readJSON<{ id: string; name: string; date: string; data: GameState }[]>(STORAGE_KEYS.library) ?? [];
+  });
+
+  const [savedTeams, setSavedTeams] = useState<CatalogTeam[]>(() => {
+    return readJSON<CatalogTeam[]>(STORAGE_KEYS.teamCatalog) ?? [];
   });
 
   useEffect(() => {
-    localStorage.setItem('dss_game_state', JSON.stringify(state));
+    writeJSON(STORAGE_KEYS.gameState, state);
   }, [state]);
 
   useEffect(() => {
-    localStorage.setItem('dss_library', JSON.stringify(savedGames));
+    writeJSON(STORAGE_KEYS.library, savedGames);
   }, [savedGames]);
+
+  useEffect(() => {
+    writeJSON(STORAGE_KEYS.teamCatalog, savedTeams);
+  }, [savedTeams]);
+
+  // Autoguardado local del partido en curso (solo en Electron): escribe
+  // silenciosamente en la carpeta de datos "partidos/" con debounce.
+  useEffect(() => {
+    const win = window as any;
+    if (!win.electronAPI?.autosaveMatch) return;
+    const id = setTimeout(() => {
+      const safe = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_');
+      const fileName = `${safe(state.competition)}_${safe(state.teamA.name)}_${safe(state.teamB.name)}_${safe(state.date)}`;
+      win.electronAPI.autosaveMatch(fileName, state).catch(() => { /* sin conexión/archivos: ignorar */ });
+    }, 2000);
+    return () => clearTimeout(id);
+  }, [state]);
+
+  // ─── Backup online (Firestore) ──────────────────────────────────────────
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(state.syncCode ? 'SYNCED' : 'INACTIVE');
+
+  // Push automático con debounce cuando el partido tiene backup activo.
+  // Sin conexión, el SDK encola los writes y sincroniza al volver la red.
+  useEffect(() => {
+    if (!state.syncCode) return;
+    const id = setTimeout(() => {
+      setSyncStatus('SYNCING');
+      pushMatch(state.syncCode!, state)
+        .then(() => setSyncStatus(navigator.onLine ? 'SYNCED' : 'OFFLINE'))
+        .catch((e) => {
+          console.error('Error de sincronización:', e);
+          setSyncStatus('ERROR');
+        });
+    }, 4000);
+    return () => clearTimeout(id);
+  }, [state]);
+
+  // Activa el backup (genera código si no existe) y sube el estado ya mismo.
+  const activateBackup = useCallback(async (): Promise<string> => {
+    const code = state.syncCode || generateMatchCode();
+    setState(prev => ({ ...prev, syncCode: code }));
+    setSyncStatus('SYNCING');
+    try {
+      await pushMatch(code, { ...state, syncCode: code });
+      setSyncStatus(navigator.onLine ? 'SYNCED' : 'OFFLINE');
+    } catch (e) {
+      console.error('Error de sincronización:', e);
+      setSyncStatus('ERROR');
+    }
+    return code;
+  }, [state]);
+
+  // Recuperación desde otro dispositivo: descarga por código y carga el partido.
+  const recoverFromBackup = useCallback(async (code: string): Promise<boolean> => {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return false;
+    try {
+      const data = await pullMatch(normalized);
+      if (!data) return false;
+      setState(migrateGameState({ ...data, activeTimeout: null }));
+      setSyncStatus(data.syncCode ? 'SYNCED' : 'INACTIVE');
+      return true;
+    } catch (e) {
+      console.error('Error al recuperar el partido:', e);
+      return false;
+    }
+  }, []);
 
   const toggleTimer = useCallback(() => {
     setState((prev) => ({ ...prev, isRunning: !prev.isRunning }));
@@ -672,12 +741,71 @@ export const useGame = () => {
     setSavedGames((prev) => prev.filter(g => g.id !== id));
   }, []);
 
-  const exportGameToFile = useCallback(async (customName?: string) => {
+  // ─── Catálogo de equipos ───
+  const saveTeamToCatalog = useCallback((teamSide: 'A' | 'B') => {
+    const team = teamSide === 'A' ? state.teamA : state.teamB;
+    const name = team.name.trim() || `EQUIPO ${teamSide}`;
+    setSavedTeams((prev) => {
+      const data: CatalogTeam['data'] = {
+        name: team.name,
+        color: team.color,
+        textColor: team.textColor,
+        logo: team.logo,
+        headCoach: team.headCoach,
+        assistantCoach: team.assistantCoach,
+        players: team.players,
+      };
+      const existing = prev.find(t => t.name.toUpperCase() === name.toUpperCase());
+      if (existing) {
+        return prev.map(t => t.id === existing.id ? { ...t, data, updatedAt: new Date().toLocaleString() } : t);
+      }
+      return [...prev, {
+        id: Math.random().toString(36).substr(2, 9),
+        name,
+        data,
+        updatedAt: new Date().toLocaleString(),
+      }];
+    });
+  }, [state]);
+
+  const deleteTeamFromCatalog = useCallback((id: string) => {
+    setSavedTeams((prev) => prev.filter(t => t.id !== id));
+  }, []);
+
+  const applyTeamToSide = useCallback((teamSide: 'A' | 'B', entry: CatalogTeam) => {
+    setState((prev) => {
+      const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
+      const players: Player[] = entry.data.players.slice(0, MAX_PLAYERS).map(p => ({
+        ...p,
+        id: Math.random().toString(36).substr(2, 9),
+        points: 0,
+        fouls: [],
+        hasEntered: false,
+        entryPeriod: undefined,
+      }));
+      while (players.length < MAX_PLAYERS) players.push(createEmptyPlayer());
+      return {
+        ...prev,
+        [teamKey]: {
+          ...prev[teamKey],
+          name: entry.data.name,
+          color: entry.data.color,
+          textColor: entry.data.textColor ?? getContrastColor(entry.data.color),
+          logo: entry.data.logo,
+          headCoach: entry.data.headCoach,
+          assistantCoach: entry.data.assistantCoach,
+          players,
+        },
+      };
+    });
+  }, []);
+
+  const exportGameToFile = useCallback(async (customName?: string, subfolder: 'partidos' | 'plantillas' = 'partidos') => {
     const safeStr = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = customName || `${safeStr(state.competition)}_${safeStr(state.teamA.name)}_${safeStr(state.teamB.name)}_${safeStr(state.date)}_${safeStr(state.timeStart)}_${safeStr(state.venue)}`;
     const win = window as any;
     if (win.electronAPI) {
-      const result = await win.electronAPI.saveMatch(state, fileName);
+      const result = await win.electronAPI.saveMatch(state, fileName, subfolder);
       if (result.success) {
         alert(`Partido guardado con éxito en:\n${result.filePath}`);
       } else if (result.error) {
@@ -751,6 +879,7 @@ export const useGame = () => {
   return {
     state,
     savedGames,
+    savedTeams,
     toggleTimer,
     addPoint,
     addFoul,
@@ -780,5 +909,11 @@ export const useGame = () => {
     exportGameToFile,
     importGameFromFile,
     finishGame,
+    saveTeamToCatalog,
+    deleteTeamFromCatalog,
+    applyTeamToSide,
+    syncStatus,
+    activateBackup,
+    recoverFromBackup,
   };
 };

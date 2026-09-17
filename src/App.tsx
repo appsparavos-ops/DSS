@@ -42,12 +42,23 @@ function App() {
     setTeamPlayers,
     exportGameToFile,
     importGameFromFile,
+    savedTeams,
+    saveTeamToCatalog,
+    deleteTeamFromCatalog,
+    applyTeamToSide,
+    syncStatus,
+    activateBackup,
+    recoverFromBackup,
   } = useGame();
 
   // Estados locales para UI
   const [showGameInfo, setShowGameInfo] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [recoverCode, setRecoverCode] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [recoverBusy, setRecoverBusy] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [selectedTarget, setSelectedTarget] = useState<{
@@ -243,8 +254,8 @@ function App() {
                     >CARGAR</button>
                     <button 
                       onClick={async () => {
-                        // Cargar temporalmente para exportar el estado actual
-                        await exportGameToFile(game.name);
+                        // Exportar la plantilla guardada a su carpeta de plantillas
+                        await exportGameToFile(game.name, 'plantillas');
                       }}
                       style={{ background: '#eee', color: '#333', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}
                       title="Exportar a archivo"
@@ -263,6 +274,88 @@ function App() {
     </div>
   );
 
+  const syncStatusLabel: Record<string, string> = {
+    SYNCING: '⏳ Sincronizando…',
+    SYNCED: '✅ Sincronizado',
+    OFFLINE: '📴 Sin conexión (se sincronizará al volver la red)',
+    ERROR: '⚠️ Error de sincronización',
+    INACTIVE: 'Backup no activado',
+  };
+
+  const renderBackupModal = () => (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4000 }}>
+      <div className="premium-card animate-scale-in" style={{ width: '480px', maxWidth: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--fiba-blue)' }}>☁️ Backup Online</h3>
+          <button onClick={() => setShowBackupModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+        </div>
+
+        {state.syncCode ? (
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: '0.8rem', color: '#666', margin: '0 0 0.5rem 0' }}>CÓDIGO DE ESTE PARTIDO</p>
+            <div style={{ fontSize: '2.2rem', fontWeight: 900, letterSpacing: '0.35em', color: 'var(--fiba-blue)', background: '#f4f7ff', padding: '0.6rem', borderRadius: '10px', border: '2px dashed #b9cdf5', marginBottom: '0.6rem', fontFamily: 'monospace' }}>
+              {state.syncCode}
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#666' }}>
+              Ingresá este código en cualquier otro dispositivo con la app para continuar el partido donde quedó.
+            </p>
+            <p style={{ fontSize: '0.85rem', fontWeight: 700 }}>{syncStatusLabel[syncStatus]}</p>
+            <button onClick={activateBackup} className="btn-primary" style={{ width: '100%', background: 'var(--fiba-blue)', color: 'white' }}>
+              SINCRONIZAR AHORA
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <p style={{ fontSize: '0.9rem', color: '#444' }}>
+              Activá el backup para que el partido se guarde online automáticamente mientras se juega.
+              Si este dispositivo falla, vas a poder seguir desde otro usando el código del partido.
+            </p>
+            <button onClick={async () => { setBackupBusy(true); await activateBackup(); setBackupBusy(false); }} disabled={backupBusy} className="btn-primary" style={{ width: '100%', background: 'var(--fiba-green)', color: 'white' }}>
+              {backupBusy ? 'ACTIVANDO…' : 'ACTIVAR BACKUP PARA ESTE PARTIDO'}
+            </button>
+          </div>
+        )}
+
+        <hr style={{ opacity: 0.15 }} />
+
+        <div>
+          <h4 style={{ margin: '0.75rem 0 0.5rem 0', color: 'var(--fiba-blue)', fontSize: '0.95rem' }}>📥 RECUPERAR PARTIDO</h4>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={recoverCode}
+              onChange={(e) => setRecoverCode(e.target.value.toUpperCase())}
+              placeholder="CÓDIGO (EJ: X7K2M9)"
+              maxLength={10}
+              style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid #eee', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'monospace' }}
+            />
+            <button
+              onClick={async () => {
+                if (!recoverCode.trim()) return;
+                setRecoverBusy(true);
+                const ok = await recoverFromBackup(recoverCode);
+                setRecoverBusy(false);
+                if (ok) {
+                  setShowBackupModal(false);
+                  setRecoverCode('');
+                } else {
+                  alert('No se encontró un partido con ese código, o no hay conexión.');
+                }
+              }}
+              disabled={recoverBusy || !recoverCode.trim()}
+              style={{ padding: '10px 18px', background: 'var(--fiba-yellow)', color: '#333', border: 'none', borderRadius: '8px', fontWeight: 800, cursor: recoverBusy || !recoverCode.trim() ? 'not-allowed' : 'pointer', opacity: recoverBusy || !recoverCode.trim() ? 0.5 : 1 }}
+            >
+              {recoverBusy ? 'BUSCANDO…' : 'RECUPERAR'}
+            </button>
+          </div>
+          <p style={{ fontSize: '0.72rem', color: '#999', marginTop: '0.5rem' }}>Al recuperar se reemplaza el partido actual por el estado del backup.</p>
+        </div>
+
+        <button onClick={() => setShowBackupModal(false)} style={{ width: '100%', marginTop: '1.25rem', padding: '12px', background: '#eee', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>CERRAR</button>
+      </div>
+    </div>
+  );
+
   if (state.status === 'SETUP') {
     return (
       <div style={{ maxWidth: '98%', margin: '0 auto', padding: '1rem' }}>
@@ -275,13 +368,15 @@ function App() {
             <button onClick={() => setShowLibrary(true)} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">📚 BIBLIOTECA</button>
             <button onClick={() => setIsSaving(true)} style={{ background: '#eee', color: '#333' }} className="btn-primary">💾 GUARDAR</button>
             <button onClick={() => setShowGameInfo(true)} style={{ background: 'var(--fiba-blue)', color: 'white' }} className="btn-primary">📋 OFICIALES</button>
+            <button onClick={() => setShowBackupModal(true)} style={{ background: state.syncCode ? '#e3f2fd' : '#eee', color: state.syncCode ? '#1565c0' : '#555' }} className="btn-primary">☁️ BACKUP</button>
             <button onClick={resetGame} style={{ background: '#fff0f0', color: '#ff4444' }} className="btn-primary">REINICIAR</button>
           </div>
         </header>
-        <SetupScreen teamA={state.teamA} teamB={state.teamB} onUpdateTeamName={updateTeamName} onUpdateTeamColor={updateTeamColor} onUpdateTeamTextColor={updateTeamTextColor} onUpdateTeamCoach={updateTeamCoach} onUpdateTeamLogo={updateTeamLogo} onUpdatePlayer={updatePlayer} onSetTeamPlayers={setTeamPlayers} onStartGame={startGame} />
+        <SetupScreen teamA={state.teamA} teamB={state.teamB} onUpdateTeamName={updateTeamName} onUpdateTeamColor={updateTeamColor} onUpdateTeamTextColor={updateTeamTextColor} onUpdateTeamCoach={updateTeamCoach} onUpdateTeamLogo={updateTeamLogo} onUpdatePlayer={updatePlayer} onSetTeamPlayers={setTeamPlayers} onStartGame={startGame} savedTeams={savedTeams} onSaveTeamToCatalog={saveTeamToCatalog} onDeleteTeamFromCatalog={deleteTeamFromCatalog} onApplyTeam={applyTeamToSide} />
         {showGameInfo && renderGameInfoModal()}
         {isSaving && renderSaveModal()}
         {showLibrary && renderLibraryModal()}
+        {showBackupModal && renderBackupModal()}
       </div>
     );
   }
@@ -320,6 +415,14 @@ function App() {
             <button onClick={nextPeriod} className="btn-primary">SIGUIENTE PERIODO</button>
           )}
           <button onClick={() => exportGameToFile()} style={{ background: '#eee', color: '#333' }} className="btn-primary" title="Exportar partido a archivo JSON">💾</button>
+          <button
+            onClick={() => setShowBackupModal(true)}
+            className="btn-primary"
+            style={{ background: state.syncCode ? '#e3f2fd' : '#eee', color: state.syncCode ? '#1565c0' : '#999' }}
+            title={state.syncCode ? `Backup activo (código ${state.syncCode}) — ${syncStatusLabel[syncStatus]}` : 'Backup online'}
+          >
+            ☁️{state.syncCode && (syncStatus === 'SYNCED' ? ' ✓' : syncStatus === 'SYNCING' ? ' …' : syncStatus === 'ERROR' ? ' ⚠' : syncStatus === 'OFFLINE' ? ' 📴' : '')}
+          </button>
           <button onClick={goToSetup} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">✏️ EDITAR</button>
         </div>
       </header>
@@ -551,6 +654,7 @@ function App() {
 
         {showGameInfo && renderGameInfoModal()}
         {showHistoryModal && renderHistoryModal()}
+        {showBackupModal && renderBackupModal()}
         
         {confirmation && (
           <div style={{

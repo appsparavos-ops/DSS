@@ -104,8 +104,26 @@ export interface GameState {
     side: 'A' | 'B';
     timer: number;
   } | null;
+  /** Código del backup online (Firestore). Presente cuando el backup está activo. */
+  syncCode?: string;
 }
 export interface PendingAction {
   type: 'POINT' | 'FOUL' | 'TIMEOUT' | 'HCC' | 'ENTRY';
   value?: any;
+}
+
+// Equipo guardado en el catálogo (plantel reutilizable entre partidos)
+export interface CatalogTeam {
+  id: string;
+  name: string;
+  updatedAt: string;
+  data: {
+    name: string;
+    color: string;
+    textColor?: string;
+    logo?: string;
+    headCoach: string;
+    assistantCoach: string;
+    players: Player[];
+  };
 }
