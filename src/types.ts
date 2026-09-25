@@ -38,6 +38,8 @@ export interface Player {
   isInRoster: boolean;
   hasEntered: boolean;
   entryPeriod?: number;
+  /** El operador lo movió manualmente al final de la lista tras ser descalificado */
+  movedToEnd?: boolean;
 }
 
 export interface TimeoutRecord {

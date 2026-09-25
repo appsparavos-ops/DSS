@@ -51,6 +51,7 @@ function App() {
     activateBackup,
     recoverFromBackup,
     setPossession,
+    movePlayerToEnd,
   } = useGame();
 
   // Mantener la pantalla encendida (sin suspensión) mientras el partido está
@@ -460,6 +461,7 @@ function App() {
           {/* LADO A */}
           <CompactTeamList 
             teamName={state.teamA.name} players={state.teamA.players} side="A" color={state.teamA.color} textColor={state.teamA.textColor}
+            onMoveToEnd={(id) => movePlayerToEnd('A', id)}
             selectedPlayerId={selectedTarget?.side === 'A' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
@@ -595,6 +597,7 @@ function App() {
           {/* LADO B */}
           <CompactTeamList 
             teamName={state.teamB.name} players={state.teamB.players} side="B" color={state.teamB.color} textColor={state.teamB.textColor}
+            onMoveToEnd={(id) => movePlayerToEnd('B', id)}
             selectedPlayerId={selectedTarget?.side === 'B' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {

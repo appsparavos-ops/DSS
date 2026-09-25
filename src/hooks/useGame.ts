@@ -675,6 +675,24 @@ export const useGame = () => {
     });
   }, []);
 
+  // El operador mueva manualmente al final de la lista a un jugador
+  // descalificado (solo orden visual; no altera el acta ni el historial)
+  const movePlayerToEnd = useCallback((side: 'A' | 'B', playerId: string) => {
+    setState((prev) => {
+      const teamKey = side === 'A' ? 'teamA' : 'teamB';
+      const team = prev[teamKey];
+      const player = team.players.find(p => p.id === playerId);
+      if (!player || player.movedToEnd) return prev;
+      return {
+        ...prev,
+        [teamKey]: {
+          ...team,
+          players: team.players.map(p => (p.id === playerId ? { ...p, movedToEnd: true } : p))
+        }
+      };
+    });
+  }, []);
+
   const startGame = useCallback(() => {
     setState((prev) => {
       const updateStartersAndRoster = (team: Team) => {
@@ -959,5 +977,6 @@ export const useGame = () => {
     activateBackup,
     recoverFromBackup,
     setPossession,
+    movePlayerToEnd,
   };
 };

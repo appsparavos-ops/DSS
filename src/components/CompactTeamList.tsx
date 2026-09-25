@@ -10,9 +10,10 @@ interface CompactPlayerRowProps {
   color?: string;
   textColor?: string;
   side: 'A' | 'B';
+  onMoveToEnd?: () => void;
 }
 
-const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected, onSelect, color, textColor, side }) => {
+const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected, onSelect, color, textColor, side, onMoveToEnd }) => {
   const getFoulColor = (period: number) => {
     if (period === 1 || period === 3) return 'var(--fiba-red)';
     return 'var(--fiba-blue)';
@@ -117,6 +118,33 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
       <div className="compact-player-points-display" style={{ fontSize: '1.1rem', fontWeight: 900, color: '#000000', minWidth: '25px', textAlign: 'right' }}>
         {player.points}
       </div>
+
+      {/* Botón para mover manualmente al final al jugador descalificado */}
+      {isDisqualified && !player.movedToEnd && onMoveToEnd && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onMoveToEnd();
+          }}
+          title="Mover este jugador descalificado al final de la lista"
+          style={{
+            background: 'var(--fiba-red)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '0.58rem',
+            fontWeight: 900,
+            padding: '3px 6px',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+            letterSpacing: '0.3px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
+          }}
+        >
+          MOVER AL FINAL ▼
+        </button>
+      )}
     </div>
   );
 };
@@ -136,12 +164,13 @@ interface CompactTeamListProps {
   onSelectCoach: (role: 'HC' | 'AC') => void;
   selectedCoachRole?: 'HC' | 'AC' | null;
   hcc?: HCCRecord;
+  onMoveToEnd: (playerId: string) => void;
 }
 
 const CompactTeamList: React.FC<CompactTeamListProps> = ({ 
   teamName, players, selectedPlayerId, onSelectPlayer, color, textColor,
   headCoach, assistantCoach, headCoachFouls, assistantCoachFouls,
-  onSelectCoach, selectedCoachRole, hcc, side
+  onSelectCoach, selectedCoachRole, hcc, side, onMoveToEnd
 }) => {
   return (
     <div className="compact-team-list-container" style={{ flex: 2, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -158,9 +187,11 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
           .filter(p => p.name || p.number)
           .sort((a, b) => {
             // Orden: 1º con participación, 2º sin participación,
-            // 3º (al final) los descalificados; por número dentro de cada grupo
+            // 3º (al final) los descalificados movidos allí MANUALMENTE
+            // por el operador con el botón "MOVER AL FINAL";
+            // por número dentro de cada grupo
             const tier = (p: Player) =>
-              isPlayerDisqualifiedByFouls(p.fouls) ? 2 : (p.hasEntered || p.isStarter) ? 0 : 1;
+              (p.movedToEnd && isPlayerDisqualifiedByFouls(p.fouls)) ? 2 : (p.hasEntered || p.isStarter) ? 0 : 1;
             const ta = tier(a);
             const tb = tier(b);
             if (ta !== tb) return ta - tb;
@@ -175,6 +206,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
             color={color}
             textColor={textColor}
             side={side}
+            onMoveToEnd={() => onMoveToEnd(player.id)}
           />
         ))}
       </div>
