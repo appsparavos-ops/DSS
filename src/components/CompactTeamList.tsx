@@ -157,11 +157,13 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
         {[...players]
           .filter(p => p.name || p.number)
           .sort((a, b) => {
-            // Primero los jugadores con participación, después el resto;
-            // dentro de cada grupo, por número de camiseta
-            const partA = (a.hasEntered || a.isStarter) ? 0 : 1;
-            const partB = (b.hasEntered || b.isStarter) ? 0 : 1;
-            if (partA !== partB) return partA - partB;
+            // Orden: 1º con participación, 2º sin participación,
+            // 3º (al final) los descalificados; por número dentro de cada grupo
+            const tier = (p: Player) =>
+              isPlayerDisqualifiedByFouls(p.fouls) ? 2 : (p.hasEntered || p.isStarter) ? 0 : 1;
+            const ta = tier(a);
+            const tb = tier(b);
+            if (ta !== tb) return ta - tb;
             return (parseInt(a.number) || 0) - (parseInt(b.number) || 0);
           })
           .map(player => (

@@ -13,14 +13,7 @@
     "electron:build": "tsc -b && vite build && electron-builder --win",
     "electron:build:portable": "tsc -b && vite build && electron-builder --win portable"
   },
-  "dependencies": {
-    "firebase": "^12.19.0",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.7",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
@@ -34,7 +27,13 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase": "^12.19.0",
     "globals": "^17.5.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.9",

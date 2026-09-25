@@ -1,5 +1,43 @@
 import { useState, useMemo } from 'react';
-import type { GameEvent, GameState } from '../types';
+import type { GameEvent, GameState, PlayerFoulSelection, CoachFoul, PlayerFoulType } from '../types';
+import { createPlayerFoul, formatPlayerFoul, normalizePlayerFoul } from '../utils/foulRules';
+
+// Opciones para cambiar el tipo de falta al editar un evento
+const PLAYER_FOUL_OPTIONS: PlayerFoulSelection[] = [
+  { type: 'P' },
+  { type: 'P', penalty: '1' },
+  { type: 'P', penalty: '2' },
+  { type: 'P', penalty: '3' },
+  { type: 'T', penalty: '1' },
+  { type: 'T', penalty: 'C' },
+  { type: 'T_DELAY', penalty: '1' },
+  { type: 'T_DELAY', penalty: 'C' },
+  { type: 'DI', penalty: '1' },
+  { type: 'DI', penalty: '2' },
+  { type: 'DI', penalty: '3' },
+  { type: 'DI', penalty: 'C' },
+  { type: 'FL', penalty: '1' },
+  { type: 'FL', penalty: '2' },
+  { type: 'FL', penalty: '3' },
+  { type: 'FL', penalty: 'C' },
+  { type: 'D' },
+];
+const COACH_FOUL_OPTIONS: CoachFoul[] = ['C1', 'B1', 'D2', 'D'];
+
+const isCoachEvent = (event: GameEvent) => event.playerId === 'HC' || event.playerId === 'AC';
+
+// Valor del selector para la falta actual (normalizado, compatible con las opciones)
+const getFoulEditValue = (event: GameEvent): string => {
+  if (isCoachEvent(event)) return JSON.stringify({ subType: event.subType });
+  const normalized = normalizePlayerFoul({
+    type: event.subType as PlayerFoulType,
+    penalty: event.foulPenalty,
+  });
+  return JSON.stringify({
+    type: normalized.type,
+    ...(normalized.penalty ? { penalty: normalized.penalty } : {}),
+  });
+};
 
 interface HistoryPanelProps {
   state: GameState;
@@ -135,6 +173,36 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                             <option value="POINT1">1 PUNTO</option>
                             <option value="POINT2">2 PUNTOS</option>
                             <option value="POINT3">3 PUNTOS</option>
+                          </select>
+                        ) : isEditing && event.type === 'FOUL' ? (
+                          <select
+                            value={getFoulEditValue(event)}
+                            onChange={(e) => {
+                              const parsed = JSON.parse(e.target.value);
+                              if (isCoachEvent(event)) {
+                                onUpdateEvent(event.id, {
+                                  subType: parsed.subType,
+                                  foulPenalty: undefined,
+                                  description: `Falta ${parsed.subType} (${event.playerId === 'HC' ? 'Principal' : 'Asistente'})`,
+                                });
+                              } else {
+                                const foul = createPlayerFoul(parsed, event.period);
+                                onUpdateEvent(event.id, {
+                                  subType: foul.type,
+                                  foulPenalty: foul.penalty,
+                                  description: `Falta ${formatPlayerFoul(foul)}`,
+                                });
+                              }
+                            }}
+                            style={{ padding: '4px', fontSize: '0.8rem' }}
+                          >
+                            {isCoachEvent(event)
+                              ? COACH_FOUL_OPTIONS.map(f => (
+                                  <option key={f} value={JSON.stringify({ subType: f })}>{f}</option>
+                                ))
+                              : PLAYER_FOUL_OPTIONS.map(f => (
+                                  <option key={formatPlayerFoul(f)} value={JSON.stringify(f)}>{formatPlayerFoul(f)}</option>
+                                ))}
                           </select>
                         ) : (
                           <span style={{ 

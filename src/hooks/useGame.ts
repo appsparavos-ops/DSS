@@ -380,7 +380,8 @@ export const useGame = () => {
           const player = team.players.find(p => p.id === event.playerId);
           if (player) player.points += pts;
         } else if (event.type === 'FOUL') {
-          if (event.subType === 'B1' || event.subType === 'C1' || (event.subType === 'D' && !event.playerId?.includes('-'))) {
+          const isCoachEvent = event.playerId === 'HC' || event.playerId === 'AC';
+          if (isCoachEvent) {
             const role = event.playerId === 'AC' ? 'assistantCoachFouls' : 'headCoachFouls';
             (team as any)[role].push(event.subType as CoachFoul);
           } else if (event.playerId) {
@@ -429,7 +430,8 @@ export const useGame = () => {
           const player = team.players.find(p => p.id === event.playerId);
           if (player) player.points += pts;
         } else if (event.type === 'FOUL') {
-          if (event.subType === 'B1' || event.subType === 'C1' || (event.subType === 'D' && !event.playerId?.includes('-'))) {
+          const isCoachEvent = event.playerId === 'HC' || event.playerId === 'AC';
+          if (isCoachEvent) {
             const role = event.playerId === 'AC' ? 'assistantCoachFouls' : 'headCoachFouls';
             (team as any)[role].push(event.subType as CoachFoul);
           } else if (event.playerId) {
