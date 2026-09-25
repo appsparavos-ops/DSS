@@ -50,7 +50,9 @@ const createEmptyPlayer = (): Player => ({
 // - corrige jugadores vacíos que tenían isInRoster: true por el bug inicial
 // - completa la plantilla hasta MAX_PLAYERS (los partidos viejos traían solo 12 filas)
 const migrateGameState = (gs: GameState): GameState => {
-  if (gs.status !== 'SETUP') return gs;
+  // Partidos viejos pueden no tener la flecha de posesión
+  const base: GameState = { ...gs, possessionArrow: gs.possessionArrow ?? 'A' };
+  if (base.status !== 'SETUP') return base;
   const migrateTeam = (team: Team): Team => {
     const players = team.players.map(p =>
       (!p.name.trim() && !p.number.trim() && p.isInRoster)
@@ -60,7 +62,7 @@ const migrateGameState = (gs: GameState): GameState => {
     while (players.length < MAX_PLAYERS) players.push(createEmptyPlayer());
     return { ...team, players };
   };
-  return { ...gs, teamA: migrateTeam(gs.teamA), teamB: migrateTeam(gs.teamB) };
+  return { ...base, teamA: migrateTeam(base.teamA), teamB: migrateTeam(base.teamB) };
 };
 
 const createEmptyTeam = (name: string, color: string): Team => ({
@@ -107,6 +109,7 @@ export const useGame = () => {
       timerOfficial: '',
       shotClockOperator: '',
       activeTimeout: null,
+      possessionArrow: 'A',
     };
   });
 
@@ -372,6 +375,8 @@ export const useGame = () => {
       const newTeamA = buildCleanTeam(prev.teamA);
       const newTeamB = buildCleanTeam(prev.teamB);
 
+      let possArrow: 'A' | 'B' = 'A';
+
       [...newHistory].reverse().forEach(event => {
         const team = event.teamSide === 'A' ? newTeamA : newTeamB;
         if (event.type.startsWith('POINT')) {
@@ -400,9 +405,11 @@ export const useGame = () => {
         } else if (event.type === 'HCC') {
           const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
           team.hcc = { period: event.period, minute: 10 - minsRemaining };
+        } else if (event.type === 'POSSESSION') {
+          possArrow = event.teamSide;
         }
       });
-      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory };
+      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory, possessionArrow: possArrow };
     });
   }, []);
 
@@ -422,6 +429,8 @@ export const useGame = () => {
       const newTeamA = buildCleanTeam(prev.teamA);
       const newTeamB = buildCleanTeam(prev.teamB);
 
+      let possArrow: 'A' | 'B' = 'A';
+
       [...newHistory].reverse().forEach(event => {
         const team = event.teamSide === 'A' ? newTeamA : newTeamB;
         if (event.type.startsWith('POINT')) {
@@ -450,9 +459,11 @@ export const useGame = () => {
         } else if (event.type === 'HCC') {
           const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
           team.hcc = { period: event.period, minute: 10 - minsRemaining };
+        } else if (event.type === 'POSSESSION') {
+          possArrow = event.teamSide;
         }
       });
-      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory };
+      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory, possessionArrow: possArrow };
     });
   }, []);
 
@@ -640,6 +651,30 @@ export const useGame = () => {
     setState((prev) => ({ ...prev, timer: Math.max(0, prev.timer + amount) }));
   }, []);
 
+  // Flecha de posesión alterna: el anotador la apunta al equipo del próximo
+  // saque de posesión alterna. Queda registrada en el historial y puede
+  // editarse/eliminarse desde ahí (el replay la reconstruye).
+  const setPossession = useCallback((side: 'A' | 'B') => {
+    setState((prev) => {
+      if (prev.possessionArrow === side) return prev;
+      const team = side === 'A' ? prev.teamA : prev.teamB;
+      const newEvent: GameEvent = {
+        id: Math.random().toString(36).substr(2, 9),
+        timestamp: new Date().toISOString(),
+        period: prev.period,
+        timeRemaining: formatTime(prev.timer),
+        teamSide: side,
+        type: 'POSSESSION',
+        description: `Flecha de posesión → ${team.name}`,
+      };
+      return {
+        ...prev,
+        possessionArrow: side,
+        history: [newEvent, ...prev.history],
+      };
+    });
+  }, []);
+
   const startGame = useCallback(() => {
     setState((prev) => {
       const updateStartersAndRoster = (team: Team) => {
@@ -706,6 +741,7 @@ export const useGame = () => {
       timerOfficial: '',
       shotClockOperator: '',
       activeTimeout: null,
+      possessionArrow: 'A',
     });
   }, []);
 
@@ -922,5 +958,6 @@ export const useGame = () => {
     syncStatus,
     activateBackup,
     recoverFromBackup,
+    setPossession,
   };
 };

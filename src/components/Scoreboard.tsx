@@ -27,6 +27,9 @@ interface ScoreboardProps {
   onAddTimeout: (side: 'A' | 'B') => void;
   activeTimeout: { side: 'A' | 'B'; timer: number } | null;
   onCancelTimeout: () => void;
+  possessionArrow: 'A' | 'B';
+  onSetPossession: (side: 'A' | 'B') => void;
+  possessionLocked?: boolean;
 }
 
 const formatTime = (seconds: number): string => {
@@ -35,11 +38,44 @@ const formatTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+// Flecha de posesión alterna: blanca con borde rojo; rellena roja si ese
+// equipo tiene la flecha a favor. Clic para apuntarla a ese equipo.
+const PossessionArrowIcon: React.FC<{
+  pointsLeft: boolean;
+  active: boolean;
+  locked: boolean;
+  onClick: () => void;
+  title: string;
+}> = ({ pointsLeft, active, locked, onClick, title }) => (
+  <div
+    onClick={locked ? undefined : onClick}
+    title={title}
+    style={{
+      cursor: locked ? 'default' : 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '2px',
+      flexShrink: 0
+    }}
+  >
+    <svg width="32" height="24" viewBox="0 0 32 24">
+      <polygon
+        points={pointsLeft ? '30,3 30,21 5,12' : '2,3 2,21 27,12'}
+        fill={active ? 'var(--fiba-red)' : '#ffffff'}
+        stroke="var(--fiba-red)"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </div>
+);
+
 const Scoreboard: React.FC<ScoreboardProps> = ({
   teamAName, teamBName, logoA, logoB,
   teamAColor, teamATextColor, teamBColor, teamBTextColor,
   scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, hccA, hccB, 
-  period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout
+  period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout,
+  possessionArrow, onSetPossession, possessionLocked
 }) => {
   const isFirstHalf = period <= 2;
   const isOT = period >= 5;
@@ -116,6 +152,13 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreA}
           </span>
+          <PossessionArrowIcon
+            pointsLeft
+            active={possessionArrow === 'A'}
+            locked={!!possessionLocked}
+            onClick={() => onSetPossession('A')}
+            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO A'}
+          />
         </div>
 
         {/* CENTRO: PERIODO - RELOJ - TIMEOUT TIMER */}
@@ -214,8 +257,15 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           </div>
         </div>
 
-        {/* EQUIPO B: PUNTAJE - FALTAS/TO - ESCUDO */}
+        {/* EQUIPO B: FLECHA - PUNTAJE - FALTAS/TO - ESCUDO */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }}>
+          <PossessionArrowIcon
+            pointsLeft={false}
+            active={possessionArrow === 'B'}
+            locked={!!possessionLocked}
+            onClick={() => onSetPossession('B')}
+            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO B'}
+          />
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreB}
           </span>

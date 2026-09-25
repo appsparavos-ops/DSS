@@ -61,7 +61,8 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                        (filterType === 'POINTS' && event.type.startsWith('POINT')) ||
                        (filterType === 'FOULS' && event.type === 'FOUL') ||
                        (filterType === 'TIMEOUT' && event.type === 'TIMEOUT') ||
-                       (filterType === 'HCC' && event.type === 'HCC');
+                       (filterType === 'HCC' && event.type === 'HCC') ||
+                       (filterType === 'POSSESSION' && event.type === 'POSSESSION');
       
       return teamMatch && playerMatch && typeMatch;
     });
@@ -81,6 +82,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
       return (period === 1 || period === 3) ? '#c80000' : '#0000b4';
     }
     if (type === 'HCC') return '#3f51b5';
+    if (type === 'POSSESSION') return '#ff9800';
     return '#666';
   };
 
@@ -117,6 +119,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                 <option value="FOULS">FALTAS</option>
                 <option value="TIMEOUT">TIEMPOS MUERTOS</option>
                 <option value="HCC">HCC</option>
+                <option value="POSSESSION">POSESIÓN ALTERNA</option>
               </select>
             </div>
           </div>
@@ -145,18 +148,35 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                       <td style={{ padding: '10px', color: '#666', fontWeight: 600 }}>
                         P{event.period} {event.timeRemaining}
                       </td>
-                      <td style={{ fontWeight: 700, color: event.teamSide === 'A' ? state.teamA.color : state.teamB.color }}>
+                      <td style={{ fontWeight: 700 }}>
                         {isEditing ? (
                           <select 
                             value={event.teamSide}
-                            onChange={(e) => onUpdateEvent(event.id, { teamSide: e.target.value as 'A' | 'B', playerId: undefined })}
+                            onChange={(e) => {
+                              const newSide = e.target.value as 'A' | 'B';
+                              const updates: Partial<GameEvent> = { teamSide: newSide, playerId: undefined };
+                              // Si es un evento de posesión, al cambiar el equipo se
+                              // actualiza la descripción (la flecha queda re-apuntada)
+                              if (event.type === 'POSSESSION') {
+                                updates.description = `Flecha de posesión → ${(newSide === 'A' ? state.teamA : state.teamB).name}`;
+                              }
+                              onUpdateEvent(event.id, updates);
+                            }}
                             style={{ padding: '4px', fontSize: '0.8rem', width: '100px' }}
                           >
                             <option value="A">{state.teamA.name}</option>
                             <option value="B">{state.teamB.name}</option>
                           </select>
                         ) : (
-                          team.name
+                          <span style={{
+                            background: team.color || 'var(--fiba-blue)',
+                            color: team.textColor || '#fff',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {team.name}
+                          </span>
                         )}
                       </td>
                       <td>

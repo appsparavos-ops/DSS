@@ -49,6 +49,7 @@ function App() {
     syncStatus,
     activateBackup,
     recoverFromBackup,
+    setPossession,
   } = useGame();
 
   // Estados locales para UI
@@ -444,6 +445,9 @@ function App() {
           onToggleTimer={toggleTimer} onAddTimeout={addTimeout} 
           activeTimeout={state.activeTimeout}
           onCancelTimeout={cancelTimeout}
+          possessionArrow={state.possessionArrow}
+          onSetPossession={setPossession}
+          possessionLocked={state.status === 'FINISHED'}
         />
         
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>

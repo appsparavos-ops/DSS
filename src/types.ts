@@ -66,7 +66,7 @@ export interface Team {
   hcc?: HCCRecord;
 }
 
-export type EventType = 'POINT1' | 'POINT2' | 'POINT3' | 'FOUL' | 'TIMEOUT' | 'HCC' | 'ENTRY';
+export type EventType = 'POINT1' | 'POINT2' | 'POINT3' | 'FOUL' | 'TIMEOUT' | 'HCC' | 'ENTRY' | 'POSSESSION';
 
 export interface GameEvent {
   id: string;
@@ -104,6 +104,8 @@ export interface GameState {
     side: 'A' | 'B';
     timer: number;
   } | null;
+  /** Flecha de posesión alterna: apunta al equipo del próximo saque de posesión alterna */
+  possessionArrow: 'A' | 'B';
   /** Código del backup online (Firestore). Presente cuando el backup está activo. */
   syncCode?: string;
 }
