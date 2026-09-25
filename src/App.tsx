@@ -7,6 +7,7 @@ import CompactTeamList from './components/CompactTeamList';
 import ActionPanel from './components/ActionPanel';
 import { generatePDF } from './utils/pdfGenerator';
 import { formatPlayerFoul } from './utils/foulRules';
+import { useWakeLock } from './hooks/useWakeLock';
 import type { PlayerFoulType, CoachFoul, PendingAction, PlayerFoulSelection } from './types';
 
 function App() {
@@ -51,6 +52,11 @@ function App() {
     recoverFromBackup,
     setPossession,
   } = useGame();
+
+  // Mantener la pantalla encendida (sin suspensión) mientras el partido está
+  // en juego. En la versión web usa la Screen Wake Lock API; en la app de
+  // escritorio ya lo garantiza Electron con powerSaveBlocker.
+  useWakeLock(state.status === 'PLAYING');
 
   // Estados locales para UI
   const [showGameInfo, setShowGameInfo] = useState(false);

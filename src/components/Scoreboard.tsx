@@ -27,7 +27,7 @@ interface ScoreboardProps {
   onAddTimeout: (side: 'A' | 'B') => void;
   activeTimeout: { side: 'A' | 'B'; timer: number } | null;
   onCancelTimeout: () => void;
-  possessionArrow: 'A' | 'B';
+  possessionArrow: 'A' | 'B' | null;
   onSetPossession: (side: 'A' | 'B') => void;
   possessionLocked?: boolean;
 }
@@ -39,7 +39,8 @@ const formatTime = (seconds: number): string => {
 };
 
 // Flecha de posesión alterna: blanca con borde rojo; rellena roja si ese
-// equipo tiene la flecha a favor. Clic para apuntarla a ese equipo.
+// equipo tiene la flecha a favor. Al inicio ninguna está marcada.
+// Clic para apuntarla a ese equipo.
 const PossessionArrowIcon: React.FC<{
   pointsLeft: boolean;
   active: boolean;
@@ -58,12 +59,12 @@ const PossessionArrowIcon: React.FC<{
       flexShrink: 0
     }}
   >
-    <svg width="32" height="24" viewBox="0 0 32 24">
+    <svg width="52" height="39" viewBox="0 0 32 24">
       <polygon
         points={pointsLeft ? '30,3 30,21 5,12' : '2,3 2,21 27,12'}
         fill={active ? 'var(--fiba-red)' : '#ffffff'}
         stroke="var(--fiba-red)"
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinejoin="round"
       />
     </svg>
@@ -152,13 +153,6 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreA}
           </span>
-          <PossessionArrowIcon
-            pointsLeft
-            active={possessionArrow === 'A'}
-            locked={!!possessionLocked}
-            onClick={() => onSetPossession('A')}
-            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO A'}
-          />
         </div>
 
         {/* CENTRO: PERIODO - RELOJ - TIMEOUT TIMER */}
@@ -202,6 +196,15 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             )}
           </div>
 
+          {/* Flecha de posesión alterna — lado EQUIPO A (izquierda del reloj) */}
+          <PossessionArrowIcon
+            pointsLeft
+            active={possessionArrow === 'A'}
+            locked={!!possessionLocked}
+            onClick={() => onSetPossession('A')}
+            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO A'}
+          />
+
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0 1.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)', borderRight: '2px solid rgba(255,255,255,0.1)', minWidth: '180px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px' }}>
               {period > 4 ? `OT${period - 4 > 1 ? period - 4 : ''}` : `PERIODO ${period}`}
@@ -217,6 +220,15 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
               <span style={{ fontSize: '0.8rem', color: isRunning ? 'var(--fiba-green)' : 'var(--fiba-yellow)' }}>{isRunning ? '▶' : '⏸'}</span>
             </div>
           </div>
+
+          {/* Flecha de posesión alterna — lado EQUIPO B (derecha del reloj) */}
+          <PossessionArrowIcon
+            pointsLeft={false}
+            active={possessionArrow === 'B'}
+            locked={!!possessionLocked}
+            onClick={() => onSetPossession('B')}
+            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO B'}
+          />
 
           {/* Timeout Timer Equipo B */}
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
@@ -257,15 +269,8 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           </div>
         </div>
 
-        {/* EQUIPO B: FLECHA - PUNTAJE - FALTAS/TO - ESCUDO */}
+        {/* EQUIPO B: PUNTAJE - FALTAS/TO - ESCUDO */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem', justifyContent: 'flex-end' }}>
-          <PossessionArrowIcon
-            pointsLeft={false}
-            active={possessionArrow === 'B'}
-            locked={!!possessionLocked}
-            onClick={() => onSetPossession('B')}
-            title={possessionLocked ? 'Partido finalizado' : 'Posesión alterna: apuntar la flecha al EQUIPO B'}
-          />
           <span style={{ fontSize: '2.8rem', fontWeight: 900, color: 'white', lineHeight: 1, minWidth: '60px', textAlign: 'center' }}>
             {scoreB}
           </span>

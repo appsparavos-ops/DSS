@@ -51,7 +51,7 @@ const createEmptyPlayer = (): Player => ({
 // - completa la plantilla hasta MAX_PLAYERS (los partidos viejos traían solo 12 filas)
 const migrateGameState = (gs: GameState): GameState => {
   // Partidos viejos pueden no tener la flecha de posesión
-  const base: GameState = { ...gs, possessionArrow: gs.possessionArrow ?? 'A' };
+  const base: GameState = { ...gs, possessionArrow: gs.possessionArrow ?? null };
   if (base.status !== 'SETUP') return base;
   const migrateTeam = (team: Team): Team => {
     const players = team.players.map(p =>
@@ -109,7 +109,7 @@ export const useGame = () => {
       timerOfficial: '',
       shotClockOperator: '',
       activeTimeout: null,
-      possessionArrow: 'A',
+      possessionArrow: null,
     };
   });
 
@@ -375,7 +375,7 @@ export const useGame = () => {
       const newTeamA = buildCleanTeam(prev.teamA);
       const newTeamB = buildCleanTeam(prev.teamB);
 
-      let possArrow: 'A' | 'B' = 'A';
+      let possArrow: 'A' | 'B' | null = null;
 
       [...newHistory].reverse().forEach(event => {
         const team = event.teamSide === 'A' ? newTeamA : newTeamB;
@@ -429,7 +429,7 @@ export const useGame = () => {
       const newTeamA = buildCleanTeam(prev.teamA);
       const newTeamB = buildCleanTeam(prev.teamB);
 
-      let possArrow: 'A' | 'B' = 'A';
+      let possArrow: 'A' | 'B' | null = null;
 
       [...newHistory].reverse().forEach(event => {
         const team = event.teamSide === 'A' ? newTeamA : newTeamB;
@@ -741,7 +741,7 @@ export const useGame = () => {
       timerOfficial: '',
       shotClockOperator: '',
       activeTimeout: null,
-      possessionArrow: 'A',
+      possessionArrow: null,
     });
   }, []);
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -146,6 +146,23 @@ ipcMain.handle('save-csv', (event, fileName, content) => {
 app.whenReady().then(() => {
   ensureDataDirs();
   createWindow();
+
+  // ─── Anti-apagado / anti-hibernación ─────────────────────────────────────
+  // Mientras la app esté abierta la pantalla no se apaga y el sistema no
+  // entra en suspensión ni hibernación (crítico durante un partido).
+  // El bloqueo se libera solo al cerrar la app.
+  try {
+    const wakeLockId = powerSaveBlocker.start('prevent-display-sleep');
+    app.on('before-quit', () => {
+      try {
+        if (powerSaveBlocker.isStarted(wakeLockId)) {
+          powerSaveBlocker.stop(wakeLockId);
+        }
+      } catch (e) { /* ya liberado */ }
+    });
+  } catch (e) {
+    console.error('No se pudo activar el bloqueo de ahorro de energía:', e);
+  }
 
   app.on('activate', () => {
     // En macOS, re-crear ventana al hacer clic en el dock si no hay ventanas

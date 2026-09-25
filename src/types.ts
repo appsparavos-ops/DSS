@@ -105,7 +105,7 @@ export interface GameState {
     timer: number;
   } | null;
   /** Flecha de posesión alterna: apunta al equipo del próximo saque de posesión alterna */
-  possessionArrow: 'A' | 'B';
+  possessionArrow: 'A' | 'B' | null;
   /** Código del backup online (Firestore). Presente cuando el backup está activo. */
   syncCode?: string;
 }
