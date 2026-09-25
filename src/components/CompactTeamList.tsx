@@ -47,7 +47,7 @@ const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected,
       <div className="compact-player-jersey-wrapper">
         <JerseyIcon 
           color={isSelected ? 'var(--fiba-yellow)' : (isDisqualified ? 'var(--fiba-red)' : (color || 'var(--fiba-blue)'))} 
-          numberColor={isSelected ? '#333' : (textColor || 'white')} 
+          numberColor={isSelected ? '#333' : (isDisqualified ? '#ffffff' : (textColor || 'white'))} 
           number={player.number}
           size={36}
         />
