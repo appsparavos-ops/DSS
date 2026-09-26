@@ -30,6 +30,8 @@ interface ScoreboardProps {
   possessionArrow: 'A' | 'B' | null;
   onSetPossession: (side: 'A' | 'B') => void;
   possessionLocked?: boolean;
+  /** Partido finalizado: desactiva reloj, timeouts y toda interacción */
+  locked?: boolean;
 }
 
 const formatTime = (seconds: number): string => {
@@ -76,7 +78,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
   teamAColor, teamATextColor, teamBColor, teamBTextColor,
   scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, hccA, hccB, 
   period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout,
-  possessionArrow, onSetPossession, possessionLocked
+  possessionArrow, onSetPossession, possessionLocked, locked
 }) => {
   const isFirstHalf = period <= 2;
   const isOT = period >= 5;
@@ -116,9 +118,10 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
               </div>
             );
           })}
-          <button onClick={() => onAddTimeout(side)} style={{ 
+          <button onClick={locked ? undefined : () => onAddTimeout(side)} style={{ 
             background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', 
-            fontSize: '0.7rem', padding: '2px 5px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700, marginLeft: '2px' 
+            fontSize: '0.7rem', padding: '2px 5px', borderRadius: '4px', cursor: locked ? 'default' : 'pointer', fontWeight: 700, marginLeft: '2px',
+            opacity: locked ? 0.4 : 1
           }}>+T</button>
         </div>
       </div>
@@ -176,7 +179,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
             {activeTimeout?.side === 'A' && (
               <div 
-                onClick={onCancelTimeout}
+                onClick={locked ? undefined : onCancelTimeout}
                 style={{
                   background: '#003a70',
                   color: 'white',
@@ -209,8 +212,8 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px' }}>
               {period > 4 ? `OT${period - 4 > 1 ? period - 4 : ''}` : `PERIODO ${period}`}
             </span>
-            <div onClick={onToggleTimer} style={{
-              fontSize: '2.2rem', fontFamily: 'monospace', color: 'white', cursor: 'pointer',
+            <div onClick={locked ? undefined : onToggleTimer} title={locked ? 'Partido finalizado' : undefined} style={{
+              fontSize: '2.2rem', fontFamily: 'monospace', color: 'white', cursor: locked ? 'default' : 'pointer',
               padding: '0.1rem 0.8rem', background: 'rgba(0,0,0,0.4)', borderRadius: '6px',
               border: `2px solid ${isRunning ? 'var(--fiba-green)' : 'var(--fiba-yellow)'}`,
               lineHeight: 1.1, userSelect: 'none', transition: 'all 0.3s',
@@ -234,7 +237,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
             {activeTimeout?.side === 'B' && (
               <div 
-                onClick={onCancelTimeout}
+                onClick={locked ? undefined : onCancelTimeout}
                 style={{
                   background: '#003a70',
                   color: 'white',

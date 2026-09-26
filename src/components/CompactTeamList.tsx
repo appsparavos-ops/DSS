@@ -165,12 +165,14 @@ interface CompactTeamListProps {
   selectedCoachRole?: 'HC' | 'AC' | null;
   hcc?: HCCRecord;
   onMoveToEnd: (playerId: string) => void;
+  /** Partido finalizado: desactiva selección y botones (solo lectura) */
+  locked?: boolean;
 }
 
 const CompactTeamList: React.FC<CompactTeamListProps> = ({ 
   teamName, players, selectedPlayerId, onSelectPlayer, color, textColor,
   headCoach, assistantCoach, headCoachFouls, assistantCoachFouls,
-  onSelectCoach, selectedCoachRole, hcc, side, onMoveToEnd
+  onSelectCoach, selectedCoachRole, hcc, side, onMoveToEnd, locked
 }) => {
   return (
     <div className="compact-team-list-container" style={{ flex: 2, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -202,11 +204,11 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
             key={player.id} 
             player={player} 
             isSelected={selectedPlayerId === player.id}
-            onSelect={() => onSelectPlayer(player.id)}
+            onSelect={() => { if (!locked) onSelectPlayer(player.id); }}
             color={color}
             textColor={textColor}
             side={side}
-            onMoveToEnd={() => onMoveToEnd(player.id)}
+            onMoveToEnd={locked ? undefined : () => onMoveToEnd(player.id)}
           />
         ))}
       </div>
@@ -215,7 +217,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
         {headCoach && (
           <div 
             className="coach-row"
-            onClick={() => onSelectCoach('HC')}
+            onClick={locked ? undefined : () => onSelectCoach('HC')}
             style={{
               padding: '8px 12px', borderRadius: '8px', background: selectedCoachRole === 'HC' ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.4)',
               border: selectedCoachRole === 'HC' ? '2px solid var(--fiba-yellow)' : '1px solid rgba(255,255,255,0.6)',
@@ -240,7 +242,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
         {assistantCoach && (
           <div 
             className="coach-row"
-            onClick={() => onSelectCoach('AC')}
+            onClick={locked ? undefined : () => onSelectCoach('AC')}
             style={{
               padding: '8px 12px', borderRadius: '8px', background: selectedCoachRole === 'AC' ? 'rgba(255,215,0,0.15)' : 'rgba(255,255,255,0.4)',
               border: selectedCoachRole === 'AC' ? '2px solid var(--fiba-yellow)' : '1px solid rgba(255,255,255,0.6)',

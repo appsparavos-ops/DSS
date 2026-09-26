@@ -17,6 +17,9 @@ const firebaseConfig = {
 
 export type SyncStatus = 'INACTIVE' | 'SYNCING' | 'SYNCED' | 'OFFLINE' | 'ERROR';
 
+/** Resultado de recuperar un partido por código de backup */
+export type RecoverResult = 'OK' | 'NOT_FOUND' | 'FINISHED' | 'ERROR';
+
 // Alfabeto sin caracteres confundibles (0/O, 1/I)
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const MATCH_CODE_LENGTH = 6;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGame } from './hooks/useGame';
 import Scoreboard from './components/Scoreboard';
 import SetupScreen from './components/SetupScreen';
@@ -64,7 +64,41 @@ function App() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showBackupModal, setShowBackupModal] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const finished = state.status === 'FINISHED';
+
+  // FINALIZAR PARTIDO exige click largo (mantener presionado ~1.2 s) como
+  // medida de seguridad contra toques accidentales; recién ahí aparece el
+  // cartel de confirmación. Un click común no hace nada.
+  const FINISH_HOLD_MS = 1200;
+  const [finishHold, setFinishHold] = useState(false);
+  const finishHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startFinishHold = () => {
+    if (finishHold) return;
+    setFinishHold(true);
+    finishHoldTimer.current = setTimeout(() => {
+      finishHoldTimer.current = null;
+      setFinishHold(false);
+      if (state.teamA.score === state.teamB.score) {
+        alert('El partido está empatado. No se puede finalizar sin jugar una prórroga.');
+      } else {
+        setShowFinishConfirm(true);
+      }
+    }, FINISH_HOLD_MS);
+  };
+
+  const cancelFinishHold = useCallback(() => {
+    if (finishHoldTimer.current) {
+      clearTimeout(finishHoldTimer.current);
+      finishHoldTimer.current = null;
+    }
+    setFinishHold(false);
+  }, []);
+
+  useEffect(() => () => { if (finishHoldTimer.current) clearTimeout(finishHoldTimer.current); }, []);
   const [recoverCode, setRecoverCode] = useState('');
+  const [recoverError, setRecoverError] = useState<'' | 'NOT_FOUND' | 'FINISHED' | 'ERROR'>('');
   const [backupBusy, setBackupBusy] = useState(false);
   const [recoverBusy, setRecoverBusy] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -161,6 +195,7 @@ function App() {
           <h3 style={{ margin: 0, color: 'var(--fiba-blue)' }}>📋 Detalles del Partido y Oficiales</h3>
           <button onClick={() => setShowGameInfo(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
         </div>
+        <fieldset disabled={finished} style={{ border: 'none', margin: 0, padding: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
           <div className="form-group">
             <label>Competición</label>
@@ -187,7 +222,8 @@ function App() {
           <div className="form-group"><label>Cronometrista</label><input type="text" value={state.timerOfficial} onChange={(e) => updateGameInfo({ timerOfficial: e.target.value.toUpperCase() })} /></div>
           <div className="form-group"><label>Operador 24"</label><input type="text" value={state.shotClockOperator} onChange={(e) => updateGameInfo({ shotClockOperator: e.target.value.toUpperCase() })} /></div>
         </div>
-        <button onClick={() => setShowGameInfo(false)} className="btn-primary" style={{ width: '100%', marginTop: '2rem' }}>GUARDAR CAMBIOS</button>
+        </fieldset>
+        <button onClick={() => setShowGameInfo(false)} className="btn-primary" style={{ width: '100%', marginTop: '2rem' }}>{finished ? 'CERRAR' : 'GUARDAR CAMBIOS'}</button>
       </div>
     </div>
   );
@@ -225,7 +261,7 @@ function App() {
           <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
         </div>
         <div style={{ flex: 1 }}>
-          <HistoryPanel state={state} onDeleteEvent={deleteEvent} onUpdateEvent={updateEvent} />
+          <HistoryPanel state={state} onDeleteEvent={deleteEvent} onUpdateEvent={updateEvent} readOnly={finished} />
         </div>
       </div>
     </div>
@@ -334,7 +370,7 @@ function App() {
             <input
               type="text"
               value={recoverCode}
-              onChange={(e) => setRecoverCode(e.target.value.toUpperCase())}
+              onChange={(e) => { setRecoverCode(e.target.value.toUpperCase()); setRecoverError(''); }}
               placeholder="CÓDIGO (EJ: X7K2M9)"
               maxLength={10}
               style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '2px solid #eee', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', fontFamily: 'monospace' }}
@@ -343,13 +379,14 @@ function App() {
               onClick={async () => {
                 if (!recoverCode.trim()) return;
                 setRecoverBusy(true);
-                const ok = await recoverFromBackup(recoverCode);
+                setRecoverError('');
+                const result = await recoverFromBackup(recoverCode);
                 setRecoverBusy(false);
-                if (ok) {
+                if (result === 'OK') {
                   setShowBackupModal(false);
                   setRecoverCode('');
                 } else {
-                  alert('No se encontró un partido con ese código, o no hay conexión.');
+                  setRecoverError(result === 'FINISHED' ? 'FINISHED' : result === 'NOT_FOUND' ? 'NOT_FOUND' : 'ERROR');
                 }
               }}
               disabled={recoverBusy || !recoverCode.trim()}
@@ -358,6 +395,24 @@ function App() {
               {recoverBusy ? 'BUSCANDO…' : 'RECUPERAR'}
             </button>
           </div>
+          {recoverError === 'FINISHED' && (
+            <div style={{ marginTop: '0.6rem', padding: '12px', borderRadius: '8px', background: '#fff0f0', border: '2px solid #d32f2f', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#d32f2f', letterSpacing: '0.05em' }}>🏁 PARTIDO FINALIZADO</div>
+              <div style={{ fontSize: '0.78rem', color: '#8a4a4a', marginTop: '4px' }}>
+                Este partido ya fue cerrado y no puede recuperarse por código.
+              </div>
+            </div>
+          )}
+          {recoverError === 'NOT_FOUND' && (
+            <div style={{ marginTop: '0.6rem', padding: '10px', borderRadius: '8px', background: '#fff8e1', border: '1px solid #f0c000', textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, color: '#7a6200' }}>
+              No se encontró un partido con ese código.
+            </div>
+          )}
+          {recoverError === 'ERROR' && (
+            <div style={{ marginTop: '0.6rem', padding: '10px', borderRadius: '8px', background: '#fff8e1', border: '1px solid #f0c000', textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, color: '#7a6200' }}>
+              Error de conexión al buscar el partido. Verificá tu red e intentá de nuevo.
+            </div>
+          )}
           <p style={{ fontSize: '0.72rem', color: '#999', marginTop: '0.5rem' }}>Al recuperar se reemplaza el partido actual por el estado del backup.</p>
         </div>
 
@@ -393,6 +448,7 @@ function App() {
 
   return (
     <div style={{ width: '100%', maxWidth: '100vw', margin: '0 auto', padding: '0.5rem 1rem', boxSizing: 'border-box', overflowX: 'hidden' }}>
+      <style>{`@keyframes finishHoldProgress { from { width: 0; } to { width: 100%; } }`}</style>
       <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div><h1 style={{ color: 'var(--fiba-blue)', fontWeight: 700, fontSize: '1.5rem', margin: 0 }}>FIBA DIGITAL SCORE SHEET</h1><p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>Planilla de Juego Oficial</p></div>
         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -404,18 +460,26 @@ function App() {
           ) : state.period >= 4 ? (
             <div style={{ display: 'flex', gap: '8px' }}>
               <button 
-                onClick={() => {
-                  if (state.teamA.score === state.teamB.score) {
-                    alert('El partido está empatado. No se puede finalizar sin jugar una prórroga.');
-                  } else {
-                    if (window.confirm('¿Estás seguro de finalizar el partido? Se cerrará el acta.')) {
-                      finishGame();
-                    }
-                  }
-                }} 
-                style={{ background: '#d32f2f', color: 'white' }} className="btn-primary"
+                onPointerDown={startFinishHold}
+                onPointerUp={cancelFinishHold}
+                onPointerLeave={cancelFinishHold}
+                onPointerCancel={cancelFinishHold}
+                onClick={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+                title="Mantené presionado ~1 segundo para finalizar"
+                style={{ background: '#d32f2f', color: 'white', position: 'relative', overflow: 'hidden', userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' }} className="btn-primary"
               >
-                FINALIZAR PARTIDO
+                {/* Barra de progreso del click largo */}
+                {finishHold && (
+                  <span style={{
+                    position: 'absolute', left: 0, top: 0, bottom: 0, width: 0,
+                    background: 'rgba(255,255,255,0.4)', pointerEvents: 'none',
+                    animation: `finishHoldProgress ${FINISH_HOLD_MS}ms linear forwards`
+                  }} />
+                )}
+                <span style={{ position: 'relative' }}>
+                  {finishHold ? 'SOSTENÉ PARA FINALIZAR…' : 'FINALIZAR PARTIDO (mantener presionado)'}
+                </span>
               </button>
               <button onClick={nextPeriod} className="btn-primary" style={{ background: '#1976d2', color: 'white' }}>
                 JUGAR PRÓRROGA
@@ -433,7 +497,18 @@ function App() {
           >
             ☁️{state.syncCode && (syncStatus === 'SYNCED' ? ' ✓' : syncStatus === 'SYNCING' ? ' …' : syncStatus === 'ERROR' ? ' ⚠' : syncStatus === 'OFFLINE' ? ' 📴' : '')}
           </button>
-          <button onClick={goToSetup} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">✏️ EDITAR</button>
+          {state.status === 'FINISHED' ? (
+            <button
+              onClick={() => {
+                if (window.confirm('¿Comenzar un partido nuevo? El partido finalizado quedará cerrado y se quitará de la pantalla (permanece en el autoguardado y en la biblioteca si lo guardaste).')) {
+                  resetGame();
+                }
+              }}
+              style={{ background: 'var(--fiba-green)', color: 'white' }} className="btn-primary" title="Comenzar un partido nuevo"
+            >🆕 NUEVO PARTIDO</button>
+          ) : (
+            <button onClick={goToSetup} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">✏️ EDITAR</button>
+          )}
         </div>
       </header>
 
@@ -455,6 +530,7 @@ function App() {
           possessionArrow={state.possessionArrow}
           onSetPossession={setPossession}
           possessionLocked={state.status === 'FINISHED'}
+          locked={finished}
         />
         
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
@@ -462,6 +538,7 @@ function App() {
           <CompactTeamList 
             teamName={state.teamA.name} players={state.teamA.players} side="A" color={state.teamA.color} textColor={state.teamA.textColor}
             onMoveToEnd={(id) => movePlayerToEnd('A', id)}
+            locked={finished}
             selectedPlayerId={selectedTarget?.side === 'A' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
@@ -598,6 +675,7 @@ function App() {
           <CompactTeamList 
             teamName={state.teamB.name} players={state.teamB.players} side="B" color={state.teamB.color} textColor={state.teamB.textColor}
             onMoveToEnd={(id) => movePlayerToEnd('B', id)}
+            locked={finished}
             selectedPlayerId={selectedTarget?.side === 'B' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
             onSelectPlayer={(id) => {
               if (pendingAction && (pendingAction.type === 'POINT' || pendingAction.type === 'FOUL' || pendingAction.type === 'ENTRY')) {
@@ -670,6 +748,37 @@ function App() {
         {showGameInfo && renderGameInfoModal()}
         {showHistoryModal && renderHistoryModal()}
         {showBackupModal && renderBackupModal()}
+
+        {/* Confirmación de finalización: cierra el acta y bloquea el partido */}
+        {showFinishConfirm && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 6000, padding: '20px'
+          }}>
+            <div className="premium-card animate-scale-in" style={{ width: '460px', maxWidth: '100%', textAlign: 'center' }}>
+              <div style={{ fontSize: '3rem', lineHeight: 1 }}>🏁</div>
+              <h3 style={{ margin: '0.75rem 0 0.5rem', color: 'var(--fiba-blue)' }}>¿Finalizar el partido?</h3>
+              <p style={{ color: '#666', fontSize: '0.9rem', margin: '0 0 0.5rem' }}>
+                Se cerrará el acta con el resultado <strong>{state.teamA.score} – {state.teamB.score}</strong>.
+              </p>
+              <p style={{ color: '#d32f2f', fontSize: '0.9rem', fontWeight: 700, margin: 0 }}>
+                Una vez finalizado, el partido NO podrá modificarse.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button onClick={() => setShowFinishConfirm(false)} className="btn-primary" style={{ flex: 1, background: '#eee', color: '#333' }}>
+                  CANCELAR
+                </button>
+                <button
+                  onClick={() => { setShowFinishConfirm(false); finishGame(); }}
+                  className="btn-primary" style={{ flex: 1, background: '#d32f2f', color: 'white' }}
+                >
+                  CONFIRMAR FINALIZACIÓN
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {confirmation && (
           <div style={{

@@ -11,7 +11,7 @@ import type {
 } from '../types';
 import { createPlayerFoul, formatPlayerFoul, isPlayerDisqualifiedByFouls } from '../utils/foulRules';
 import { STORAGE_KEYS, readJSON, writeJSON, migrateLegacyStorage } from '../services/storage';
-import { generateMatchCode, pushMatch, pullMatch, type SyncStatus } from '../services/sync';
+import { generateMatchCode, pushMatch, pullMatch, type SyncStatus, type RecoverResult } from '../services/sync';
 
 const INITIAL_TIMER = 600; // 10 minutos por cuarto
 export const MAX_PLAYERS = 20; // filas disponibles para cargar jugadores en el armado del partido
@@ -181,30 +181,38 @@ export const useGame = () => {
   }, [state]);
 
   // Recuperación desde otro dispositivo: descarga por código y carga el partido.
-  const recoverFromBackup = useCallback(async (code: string): Promise<boolean> => {
+  // Los partidos ya FINALIZADOS no pueden recuperarse (el acta está cerrada).
+  const recoverFromBackup = useCallback(async (code: string): Promise<RecoverResult> => {
     const normalized = code.trim().toUpperCase();
-    if (!normalized) return false;
+    if (!normalized) return 'NOT_FOUND';
     try {
       const data = await pullMatch(normalized);
-      if (!data) return false;
+      if (!data) return 'NOT_FOUND';
+      if (data.status === 'FINISHED') return 'FINISHED';
       setState(migrateGameState({ ...data, activeTimeout: null }));
       setSyncStatus(data.syncCode ? 'SYNCED' : 'INACTIVE');
-      return true;
+      return 'OK';
     } catch (e) {
       console.error('Error al recuperar el partido:', e);
-      return false;
+      return 'ERROR';
     }
   }, []);
 
+  // Partido finalizado = acta cerrada: NINGUNA acción de juego puede
+  // modificar el estado. Solo finishGame/resetGame/carga de partidos escapan.
+  const guardedSet = useCallback((updater: (prev: GameState) => GameState) => {
+    setState((prev) => (prev.status === 'FINISHED' ? prev : updater(prev)));
+  }, []);
+
   const toggleTimer = useCallback(() => {
-    setState((prev) => ({ ...prev, isRunning: !prev.isRunning }));
+    guardedSet((prev) => ({ ...prev, isRunning: !prev.isRunning }));
   }, []);
 
   useEffect(() => {
     let interval: any;
     if (state.isRunning && state.timer > 0) {
       interval = setInterval(() => {
-        setState((prev) => ({ ...prev, timer: prev.timer - 1 }));
+        setState((prev) => (prev.status === 'FINISHED' ? prev : { ...prev, timer: prev.timer - 1 }));
       }, 1000);
     } else if (state.timer === 0) {
       setState((prev) => ({ ...prev, isRunning: false }));
@@ -217,6 +225,7 @@ export const useGame = () => {
     if (state.activeTimeout) {
       interval = setInterval(() => {
         setState((prev) => {
+          if (prev.status === 'FINISHED') return prev;
           if (!prev.activeTimeout) return prev;
           if (prev.activeTimeout.timer <= 1) {
             return { ...prev, activeTimeout: null };
@@ -235,7 +244,7 @@ export const useGame = () => {
   }, [state.activeTimeout]);
 
   const addPoint = useCallback((teamSide: 'A' | 'B', playerId: string, points: number) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const updatedPlayers = team.players.map(p =>
@@ -262,7 +271,7 @@ export const useGame = () => {
   }, []);
 
   const addFoul = useCallback((teamSide: 'A' | 'B', playerId: string, foulSelection: PlayerFoulType | PlayerFoulSelection = 'P') => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const newFoul = createPlayerFoul(foulSelection, prev.period);
@@ -320,7 +329,7 @@ export const useGame = () => {
   }, []);
 
   const addCoachFoul = useCallback((teamSide: 'A' | 'B', role: 'HC' | 'AC', foulType: CoachFoul) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const foulField = role === 'HC' ? 'headCoachFouls' : 'assistantCoachFouls';
@@ -359,7 +368,7 @@ export const useGame = () => {
   }, []);
 
   const deleteEvent = useCallback((eventId: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const newHistory = prev.history.filter(e => e.id !== eventId);
       const buildCleanTeam = (originalTeam: Team): Team => ({
         ...originalTeam,
@@ -414,7 +423,7 @@ export const useGame = () => {
   }, []);
 
   const updateEvent = useCallback((eventId: string, updates: Partial<GameEvent>) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const newHistory = prev.history.map(e => e.id === eventId ? { ...e, ...updates } : e);
       const buildCleanTeam = (originalTeam: Team): Team => ({
         ...originalTeam,
@@ -468,7 +477,7 @@ export const useGame = () => {
   }, []);
 
   const setTeamPlayers = useCallback((side: 'A' | 'B', players: Player[]) => {
-    setState((prev) => ({
+    guardedSet((prev) => ({
       ...prev,
       [side === 'A' ? 'teamA' : 'teamB']: {
         ...prev[side === 'A' ? 'teamA' : 'teamB'],
@@ -478,7 +487,7 @@ export const useGame = () => {
   }, []);
 
   const updatePlayer = useCallback((teamSide: 'A' | 'B', playerId: string, updates: Partial<Player>) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const finalUpdates = { ...updates };
@@ -489,7 +498,7 @@ export const useGame = () => {
   }, []);
 
   const togglePlayerEntry = useCallback((teamSide: 'A' | 'B', playerId: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       let newEvent: GameEvent | null = null;
@@ -523,14 +532,14 @@ export const useGame = () => {
   }, []);
 
   const updateTeamName = useCallback((teamSide: 'A' | 'B', name: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       return { ...prev, [teamKey]: { ...prev[teamKey], name: name.toUpperCase() } };
     });
   }, []);
 
   const updateTeamColor = useCallback((teamSide: 'A' | 'B', color: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       return {
         ...prev,
@@ -544,28 +553,28 @@ export const useGame = () => {
   }, []);
 
   const updateTeamTextColor = useCallback((teamSide: 'A' | 'B', textColor: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       return { ...prev, [teamKey]: { ...prev[teamKey], textColor } };
     });
   }, []);
 
   const updateTeamCoach = useCallback((teamSide: 'A' | 'B', field: 'headCoach' | 'assistantCoach', value: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       return { ...prev, [teamKey]: { ...prev[teamKey], [field]: value.toUpperCase() } };
     });
   }, []);
 
   const updateTeamLogo = useCallback((teamSide: 'A' | 'B', logo: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       return { ...prev, [teamKey]: { ...prev[teamKey], logo } };
     });
   }, []);
 
   const addTimeout = useCallback((teamSide: 'A' | 'B') => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const firstHalfTO = team.timeouts.filter(t => t.period <= 2).length;
@@ -617,11 +626,11 @@ export const useGame = () => {
   }, []);
 
   const cancelTimeout = useCallback(() => {
-    setState((prev) => ({ ...prev, activeTimeout: null }));
+    guardedSet((prev) => ({ ...prev, activeTimeout: null }));
   }, []);
 
   const addHCC = useCallback((teamSide: 'A' | 'B') => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       if (team.hcc) return prev;
@@ -648,14 +657,14 @@ export const useGame = () => {
   }, []);
 
   const adjustTimer = useCallback((amount: number) => {
-    setState((prev) => ({ ...prev, timer: Math.max(0, prev.timer + amount) }));
+    guardedSet((prev) => ({ ...prev, timer: Math.max(0, prev.timer + amount) }));
   }, []);
 
   // Flecha de posesión alterna: el anotador la apunta al equipo del próximo
   // saque de posesión alterna. Queda registrada en el historial y puede
   // editarse/eliminarse desde ahí (el replay la reconstruye).
   const setPossession = useCallback((side: 'A' | 'B') => {
-    setState((prev) => {
+    guardedSet((prev) => {
       if (prev.possessionArrow === side) return prev;
       const team = side === 'A' ? prev.teamA : prev.teamB;
       const newEvent: GameEvent = {
@@ -678,7 +687,7 @@ export const useGame = () => {
   // El operador mueva manualmente al final de la lista a un jugador
   // descalificado (solo orden visual; no altera el acta ni el historial)
   const movePlayerToEnd = useCallback((side: 'A' | 'B', playerId: string) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = side === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const player = team.players.find(p => p.id === playerId);
@@ -694,7 +703,7 @@ export const useGame = () => {
   }, []);
 
   const startGame = useCallback(() => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const updateStartersAndRoster = (team: Team) => {
         let roster = team.players.filter(p => p.isInRoster);
         while (roster.length < ROSTER_LIMIT) {
@@ -732,11 +741,11 @@ export const useGame = () => {
   }, []);
 
   const updateGameInfo = useCallback((updates: Partial<GameState>) => {
-    setState((prev) => ({ ...prev, ...updates }));
+    guardedSet((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const goToSetup = useCallback(() => {
-    setState((prev) => ({ ...prev, status: 'SETUP', isRunning: false }));
+    guardedSet((prev) => ({ ...prev, status: 'SETUP', isRunning: false }));
   }, []);
 
   const resetGame = useCallback(() => {
@@ -764,7 +773,7 @@ export const useGame = () => {
   }, []);
 
   const nextPeriod = useCallback(() => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const isOT = prev.period >= 4;
       return {
         ...prev,
@@ -834,7 +843,7 @@ export const useGame = () => {
   }, []);
 
   const applyTeamToSide = useCallback((teamSide: 'A' | 'B', entry: CatalogTeam) => {
-    setState((prev) => {
+    guardedSet((prev) => {
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const players: Player[] = entry.data.players.slice(0, MAX_PLAYERS).map(p => ({
         ...p,

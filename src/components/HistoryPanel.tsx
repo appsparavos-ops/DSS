@@ -43,9 +43,11 @@ interface HistoryPanelProps {
   state: GameState;
   onDeleteEvent: (id: string) => void;
   onUpdateEvent: (id: string, updates: Partial<GameEvent>) => void;
+  /** Partido finalizado: muestra el historial en modo solo lectura */
+  readOnly?: boolean;
 }
 
-const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps) => {
+const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent, readOnly }: HistoryPanelProps) => {
   // const [isExpanded, setIsExpanded] = useState(false);
   const [filterTeam, setFilterTeam] = useState<'ALL' | 'A' | 'B'>('ALL');
   const [filterPlayer, setFilterPlayer] = useState<string>('ALL');
@@ -257,6 +259,9 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                         {player?.name || '-'}
                       </td>
                       <td style={{ textAlign: 'right', padding: '10px' }}>
+                        {readOnly ? (
+                          <span title="Partido finalizado: solo lectura" style={{ opacity: 0.5 }}>🔒</span>
+                        ) : (
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                           <button 
                             onClick={() => setEditingId(isEditing ? null : event.id)}
@@ -279,6 +284,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent }: HistoryPanelProps
                             🗑️
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
