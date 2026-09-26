@@ -54,6 +54,25 @@ const getDb = () => {
   return dbPromise;
 };
 
+/**
+ * Firestore no admite valores `undefined` en ninguna parte del documento y el
+ * GameState siempre los tiene (hcc sin usar, entryPeriod de jugadores que no
+ * entraron, logo sin cargar, etc.). Se eliminan recursivamente antes de subir.
+ */
+const stripUndefined = <T,>(value: T): T => {
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v !== undefined) out[k] = stripUndefined(v);
+    }
+    return out as T;
+  }
+  return value;
+};
+
 /** Sube el estado completo del partido bajo su código (merge + timestamp de servidor). */
 export const pushMatch = async (code: string, state: GameState): Promise<void> => {
   const db = await getDb();
@@ -65,7 +84,9 @@ export const pushMatch = async (code: string, state: GameState): Promise<void> =
       competition: state.competition,
       status: state.status,
       updatedAt: serverTimestamp(),
-      state,
+      // OJO: solo se sanitiza `state`; el serverTimestamp() es un FieldValue
+      // que no debe pasar por stripUndefined.
+      state: stripUndefined(state),
     },
     { merge: true }
   );
