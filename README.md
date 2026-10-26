@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# DSS — FIBA Digital Score Sheet
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Planilla de Juego Digital Oficial para Baloncesto. Aplicación PWA (Progressive Web App)
+instalable y usable sin conexión, con soporte opcional para empaquetado de escritorio con Electron.
 
-Currently, two official plugins are available:
+## 🚀 Desarrollo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev       # servidor de desarrollo en http://localhost:5173
+npm run build     # compilación de producción en dist/
+npm run preview   # previsualizar la build de producción
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 📱 Instalar como PWA
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Ejecuta `npm run build && npm run preview`.
+2. Abre la URL en Chrome/Edge desde **HTTPS** o `localhost`.
+3. En el navegador aparecerá el icono **"Instalar aplicación"** en la barra de direcciones.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+La app funciona **offline** gracias al Service Worker generado por Workbox
+(vite-plugin-pwa) y precachea todos los assets estáticos.
+
+## 🖥️ Empaquetado para Windows (Electron)
+
+```bash
+npm run electron:build           # instalador NSIS (.exe)
+npm run electron:build:portable  # versión portable
+node create-msi.cjs              # generar instalador MSI (requiere release/win-unpacked)
 ```
+
+## 🗂️ Estructura
+
+```
+src/
+├── components/     # Componentes React (ActionPanel, Scoreboard, TeamTable, etc.)
+├── hooks/          # Lógica de estado del partido (useGame, useWakeLock)
+├── services/       # Almacenamiento local y sincronización (Firebase)
+├── utils/          # Reglas de faltas y generación de PDF
+├── App.tsx
+├── main.tsx        # Registro del SW de la PWA
+└── index.css
+public/              # Íconos PWA y assets estáticos
+electron/            # Código del escritorio (Electron)
+```
+
+## 🛠️ Correcciones aplicadas
+
+- Se eliminaron archivos duplicados/obsoletos en la raíz (`ActionPanel.tsx`, `types.ts`,
+  `foulRules.ts`, `pdfGenerator.ts` — copias desactualizadas).
+- Se eliminaron carpetas generadas (`dev-dist/`, `scratch/`) y archivos de iconos
+  repetidos (`icon.ico`, `public/icono.ico` redundantes).
+- Se corrigió la compatibilidad de `vite-plugin-pwa` con Vite 8 (actualizado a v2.x).
+- Se agregaron los iconos PWA requeridos: `pwa-192x192.png` y `pwa-512x512.png`
+  (generados desde el ícono oficial).
+- Se corrigió el `index.html`: `lang="es"`, rutas relativas, `theme-color`,
+  `<link rel="manifest">`, `apple-touch-icon` y meta tags iOS/PWA faltantes.
+- Se configuró correctamente el `manifest` (`start_url`, `scope`, `lang`,
+  iconos con `purpose` separados `any`/`maskable`).
+- Se mejoró el registro del Service Worker en `main.tsx` con manejo de
+  actualizaciones (`onNeedRefresh`) y eventos `offlineReady`.
+- Se agregó `navigateFallback` a Workbox para que funcione como SPA offline.
+- Se agregó cache runtime para `fonts.gstatic.com`.
