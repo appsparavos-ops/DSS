@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
-    <!-- PWA / identidad -->
+    <!-- Icono -->
     <link rel="icon" type="image/x-icon" href="./favicon.ico" />
-    <link rel="manifest" href="./manifest.webmanifest" crossorigin="use-credentials" />
+    <link rel="apple-touch-icon" href="./pwa-192x192.png" />
+
+    <!-- Color de la barra de estado / app -->
     <meta name="theme-color" content="#1a237e" />
-    <meta name="description" content="Planilla de Juego Digital Oficial para Baloncesto" />
-    <meta name="application-name" content="DSS" />
 
     <!-- Android -->
     <meta name="mobile-web-app-capable" content="yes" />
@@ -18,10 +18,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DSS" />
-    <link rel="apple-touch-icon" href="./pwa-192x192.png" />
 
-    <!-- Evita que Chrome detecte idiomas y traducciones no solicitadas en la tablet -->
-    <meta http-equiv="Content-Language" content="es" />
+    <meta name="description" content="Planilla de Juego Digital Oficial para Baloncesto" />
+    <meta name="application-name" content="DSS" />
+
+    <!--
+      NOTA: El tag <link rel="manifest"> lo inyecta vite-plugin-pwa en la build.
+      No lo ponemos a mano para evitar duplicados (dos <link rel="manifest">
+      con crossorigin distintos impiden la instalación en Chrome Android).
+    -->
 
     <title>FIBA Digital Score Sheet</title>
   </head>
