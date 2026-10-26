@@ -1,63 +1,47 @@
 # DSS — FIBA Digital Score Sheet
 
-Planilla de Juego Digital Oficial para Baloncesto. Aplicación PWA (Progressive Web App)
-instalable y usable sin conexión, con soporte opcional para empaquetado de escritorio con Electron.
+Planilla de Juego Digital Oficial para Baloncesto. PWA instalable y offline-first
+con soporte opcional para escritorio (Electron).
 
-## 🚀 Desarrollo
+## Desarrollo
 
 ```bash
 npm install
-npm run dev       # servidor de desarrollo en http://localhost:5173
-npm run build     # compilación de producción en dist/
-npm run preview   # previsualizar la build de producción
+npm run dev        # http://localhost:5173
+npm run build      # build producción en dist/
+npm run preview    # preview de la build
 ```
 
-## 📱 Instalar como PWA
+## Instalar como PWA (Android/Chrome)
 
-1. Ejecuta `npm run build && npm run preview`.
-2. Abre la URL en Chrome/Edge desde **HTTPS** o `localhost`.
-3. En el navegador aparecerá el icono **"Instalar aplicación"** en la barra de direcciones.
+1. Servir la app por **HTTPS** o desde `localhost` (el Service Worker
+   requiere un origen seguro).
+2. Abrir la URL en Chrome → menú ⋮ → **"Instalar aplicación"** (o botón en la
+   barra de direcciones).
 
-La app funciona **offline** gracias al Service Worker generado por Workbox
-(vite-plugin-pwa) y precachea todos los assets estáticos.
+### Solución: "La app ya está instalada" / "No se pudo abrir la app"
 
-## 🖥️ Empaquetado para Windows (Electron)
+Esto pasa típicamente al migrar a una tablet nueva usando la restauración de
+Google: Chrome restaura el **registro** de que la PWA está instalada, pero
+**NO transfiere el Service Worker ni el cache**. El atajo existe pero no hay
+quien responda cuando se intenta abrir.
 
-```bash
-npm run electron:build           # instalador NSIS (.exe)
-npm run electron:build:portable  # versión portable
-node create-msi.cjs              # generar instalador MSI (requiere release/win-unpacked)
-```
+Pasos para reparar la instalación rota en la tablet nueva:
 
-## 🗂️ Estructura
+1. **Desinstalar el atajo viejo**: Mantén presionado el icono de DSS en el
+   launcher → "Desinstalar" o "Eliminar acceso directo".
+2. **Limpiar datos del sitio** en Chrome:
+   - Abre Chrome → ⚙️ Configuración → Privacidad → **Borrar datos de navegación**
+   - En *"Avanzado"* marca **"Datos de sitios web"** (rango "Todos los periodos")
+   - Borra.
+   - Alternativa rápida: en la barra escribe `chrome://settings/siteData`,
+     busca el dominio donde está hosteado DSS y borra todos sus datos.
+3. **Cerrar Chrome completamente** (botón recientes → quitar la app).
+4. **Volver a abrir el enlace a DSS** en Chrome y pulsar **"Instalar"**.
+5. Abre DSS **desde el nuevo icono** una vez con conexión a internet para que
+   se complete la instalación del Service Worker y el precacheo. A partir de
+   ese momento funciona 100% offline.
 
-```
-src/
-├── components/     # Componentes React (ActionPanel, Scoreboard, TeamTable, etc.)
-├── hooks/          # Lógica de estado del partido (useGame, useWakeLock)
-├── services/       # Almacenamiento local y sincronización (Firebase)
-├── utils/          # Reglas de faltas y generación de PDF
-├── App.tsx
-├── main.tsx        # Registro del SW de la PWA
-└── index.css
-public/              # Íconos PWA y assets estáticos
-electron/            # Código del escritorio (Electron)
-```
-
-## 🛠️ Correcciones aplicadas
-
-- Se eliminaron archivos duplicados/obsoletos en la raíz (`ActionPanel.tsx`, `types.ts`,
-  `foulRules.ts`, `pdfGenerator.ts` — copias desactualizadas).
-- Se eliminaron carpetas generadas (`dev-dist/`, `scratch/`) y archivos de iconos
-  repetidos (`icon.ico`, `public/icono.ico` redundantes).
-- Se corrigió la compatibilidad de `vite-plugin-pwa` con Vite 8 (actualizado a v2.x).
-- Se agregaron los iconos PWA requeridos: `pwa-192x192.png` y `pwa-512x512.png`
-  (generados desde el ícono oficial).
-- Se corrigió el `index.html`: `lang="es"`, rutas relativas, `theme-color`,
-  `<link rel="manifest">`, `apple-touch-icon` y meta tags iOS/PWA faltantes.
-- Se configuró correctamente el `manifest` (`start_url`, `scope`, `lang`,
-  iconos con `purpose` separados `any`/`maskable`).
-- Se mejoró el registro del Service Worker en `main.tsx` con manejo de
-  actualizaciones (`onNeedRefresh`) y eventos `offlineReady`.
-- Se agregó `navigateFallback` a Workbox para que funcione como SPA offline.
-- Se agregó cache runtime para `fonts.gstatic.com`.
+La versión actual del código registra el SW con recuperación automática: si
+detecta que la PWA se abrió desde el atajo sin SW activo (el caso de la
+migración), lo registra y recarga automáticamente.

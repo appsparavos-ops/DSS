@@ -2,20 +2,32 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
-    <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+    <!-- PWA / identidad -->
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    <link rel="manifest" href="./manifest.webmanifest" crossorigin="use-credentials" />
     <meta name="theme-color" content="#1a237e" />
     <meta name="description" content="Planilla de Juego Digital Oficial para Baloncesto" />
+    <meta name="application-name" content="DSS" />
+
+    <!-- Android -->
     <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- iOS Safari -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="DSS" />
     <link rel="apple-touch-icon" href="./pwa-192x192.png" />
+
+    <!-- Evita que Chrome detecte idiomas y traducciones no solicitadas en la tablet -->
+    <meta http-equiv="Content-Language" content="es" />
+
     <title>FIBA Digital Score Sheet</title>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>Esta aplicación requiere JavaScript para funcionar.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
