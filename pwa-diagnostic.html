@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DSS — Diagnóstico PWA</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color:#222; }
+    h1 { color:#1a237e; }
+    .ok { color:#1b7a1b; font-weight:600; }
+    .err { color:#c62828; font-weight:600; }
+    .warn { color:#b26a00; font-weight:600; }
+    pre { background:#f4f4f8; padding:12px; border-radius:6px; overflow:auto; font-size:13px; }
+    button { padding:10px 16px; font-size:16px; background:#1a237e; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <h1>Diagnóstico de instalación DSS</h1>
+  <p>Abre esta página en Chrome de la tablet (en el mismo dominio donde está DSS)
+     para ver qué está fallando antes de volver a intentar instalar:</p>
+  <div id="result"></div>
+  <p>
+    <button onclick="location.reload()">Volver a comprobar</button>
+  </p>
+  <pre id="log"></pre>
+
+<script>
+const logEl = document.getElementById('log');
+const result = document.getElementById('result');
+function log(msg) { logEl.textContent += msg + '\n'; }
+
+async function run() {
+  const checks = [];
+  const fail = m => checks.push(`<p class="err">❌ ${m}</p>`);
+  const ok = m => checks.push(`<p class="ok">✅ ${m}</p>`);
+  const warn = m => checks.push(`<p class="warn">⚠️ ${m}</p>`);
+
+  // 1) HTTPS / localhost
+  if (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    ok('Origen seguro: ' + location.protocol + '//' + location.host);
+  } else {
+    fail('Origen NO seguro: ' + location.protocol + '//' + location.host + '. La PWA requiere HTTPS o localhost.');
+  }
+
+  // 2) Manifest descargable
+  try {
+    const res = await fetch('./manifest.webmanifest', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const man = await res.json();
+    log('--- Manifest ---');
+    log(JSON.stringify(man, null, 2));
+    if (!man.name) fail('Manifest sin name'); else ok('name: ' + man.name);
+    if (!man.short_name) fail('Manifest sin short_name'); else ok('short_name: ' + man.short_name);
+    if (!man.start_url) fail('Manifest sin start_url'); else ok('start_url: ' + man.start_url);
+    if (!man.display || man.display !== 'standalone') warn('display no es standalone: ' + man.display);
+    else ok('display: standalone');
+    if (!Array.isArray(man.icons) || man.icons.length === 0) fail('Sin iconos')
+    else {
+      ok('Iconos (' + man.icons.length + '), comprobando…');
+      for (const icon of man.icons) {
+        try {
+          const ires = await fetch(icon.src, { cache: 'no-cache' });
+          if (!ires.ok) throw new Error('HTTP ' + ires.status);
+          const ct = ires.headers.get('content-type');
+          ok(`${icon.src} (${icon.sizes}, ${ct})`);
+        } catch (e) {
+          fail(`${icon.src}: ${e.message}`);
+        }
+      }
+    }
+  } catch (e) {
+    fail('No se pudo descargar el manifest: ' + e.message);
+  }
+
+  // 3) SW disponible y registrable
+  if (!('serviceWorker' in navigator)) {
+    fail('Este navegador no soporta Service Workers.');
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.active) ok('Service Worker activo (scope: ' + reg.scope + ')');
+      else warn('No hay Service Worker activo todavía. Recarga la página tras 5s.');
+    } catch (e) {
+      fail('Error consultando SW: ' + e.message);
+    }
+  }
+
+  // 4) beforeinstallprompt
+  let sawPrompt = false;
+  window.addEventListener('beforeinstallprompt', () => {
+    sawPrompt = true;
+    ok('Chrome disparó beforeinstallprompt → ¡la app es instalable!');
+    checks.forEach(c => result.insertAdjacentHTML('beforeend', c));
+    checks.length = 0;
+  });
+  setTimeout(() => {
+    if (!sawPrompt) warn('No se disparó beforeinstallprompt en los primeros 4 segundos. Esto puede indicar que Chrome detectó algún problema con el manifest/SW. Revisa arriba los checks rojos.');
+    checks.forEach(c => result.insertAdjacentHTML('beforeend', c));
+  }, 4000);
+}
+run();
+</script>
+</body>
+</html>
