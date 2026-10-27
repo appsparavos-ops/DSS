@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build_site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+      - name: Build (GitHub Pages subpath)
+        # BASE_PATH se deriva del nombre del repo para que funcione tanto en
+        # usuario.github.io/DSS como si cambias el nombre del repo.
+        run: BASE_PATH="/${{ github.event.repository.name }}/" npm run build
+      - name: SPA fallback 404.html
+        # GitHub Pages devuelve 404 en rutas profundas (antes de que el SW
+        # se active). Copiar index.html como 404.html hace que el SPA shell
+        # cargue también en esas rutas.
+        run: cp dist/index.html dist/404.html
+      - name: Upload Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build_site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
