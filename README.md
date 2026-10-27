@@ -1,47 +1,64 @@
 # DSS — FIBA Digital Score Sheet
 
 Planilla de Juego Digital Oficial para Baloncesto. PWA instalable y offline-first
-con soporte opcional para escritorio (Electron).
+con soporte opcional para escritorio (Electron). El deploy está configurado para
+**GitHub Pages** mediante GitHub Actions (`.github/workflows/deploy.yml`).
 
-## Desarrollo
+## Despliegue en GitHub Pages (automático)
+
+1. Sube el código a la rama `main` del repo `DSS`.
+2. En GitHub → **Settings** → **Pages** → *Source* selecciona
+   **"GitHub Actions"** (no "Deploy from a branch").
+3. Al hacer push a `main`, el workflow automáticamente:
+   - Instala dependencias
+   - Compila con `BASE_PATH=/<nombre-del-repo>/` (queda bien así renombraras el repo)
+   - Genera `404.html` (SPA fallback para rutas profundas en Pages)
+   - Incluye `.nojekyll` (desactiva Jekyll para servir los assets tal cual)
+   - Publica el contenido de `dist/` en Pages.
+
+URL final: `https://<tu-usuario>.github.io/DSS/`
+
+## Desarrollo local
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # build producción en dist/
-npm run preview    # preview de la build
+npm run dev          # http://localhost:5173
+npm run build        # build producción en dist/
+npm run preview      # preview de la build
 ```
 
-## Instalar como PWA (Android/Chrome)
+## Diagnóstico de instalación PWA
 
-1. Servir la app por **HTTPS** o desde `localhost` (el Service Worker
-   requiere un origen seguro).
-2. Abrir la URL en Chrome → menú ⋮ → **"Instalar aplicación"** (o botón en la
-   barra de direcciones).
+Si Chrome dice *"No se puede instalar esta app"*, abre en la tablet
+(desde el mismo dominio donde está desplegada DSS):
 
-### Solución: "La app ya está instalada" / "No se pudo abrir la app"
+```
+https://<tu-usuario>.github.io/DSS/pwa-diagnostic.html
+```
 
-Esto pasa típicamente al migrar a una tablet nueva usando la restauración de
-Google: Chrome restaura el **registro** de que la PWA está instalada, pero
-**NO transfiere el Service Worker ni el cache**. El atajo existe pero no hay
-quien responda cuando se intenta abrir.
+Te muestra en verde/rojo qué requisito de PWA falla (HTTPS, manifest, iconos, SW, etc.).
 
-Pasos para reparar la instalación rota en la tablet nueva:
+## Instalar como PWA (Android / Chrome de escritorio)
 
-1. **Desinstalar el atajo viejo**: Mantén presionado el icono de DSS en el
-   launcher → "Desinstalar" o "Eliminar acceso directo".
-2. **Limpiar datos del sitio** en Chrome:
-   - Abre Chrome → ⚙️ Configuración → Privacidad → **Borrar datos de navegación**
-   - En *"Avanzado"* marca **"Datos de sitios web"** (rango "Todos los periodos")
-   - Borra.
-   - Alternativa rápida: en la barra escribe `chrome://settings/siteData`,
-     busca el dominio donde está hosteado DSS y borra todos sus datos.
-3. **Cerrar Chrome completamente** (botón recientes → quitar la app).
-4. **Volver a abrir el enlace a DSS** en Chrome y pulsar **"Instalar"**.
-5. Abre DSS **desde el nuevo icono** una vez con conexión a internet para que
-   se complete la instalación del Service Worker y el precacheo. A partir de
-   ese momento funciona 100% offline.
+1. Abre la app con conexión.
+2. Menú ⋮ → **"Instalar aplicación"**.
+3. La primera vez ábrela con conexión para que se precachee. Luego funciona offline.
 
-La versión actual del código registra el SW con recuperación automática: si
-detecta que la PWA se abrió desde el atajo sin SW activo (el caso de la
-migración), lo registra y recarga automáticamente.
+## Si en una tablet nueva dice "La app ya está instalada" / "No se pudo abrir"
+
+Es el caso de PWA huérfana por restauración desde la cuenta Google:
+1. Mantén el icono → *Desinstalar*.
+2. `chrome://settings/siteData` → busca tu dominio → Borrar.
+3. Cierra Chrome completamente (recientes → quitar).
+4. Abre DSS en Chrome y vuelve a instalar.
+
+El SW ya tiene lógica de auto-recuperación: si detecta que se abrió el atajo sin
+SW activo, lo registra y recarga la app.
+
+## Empaquetado para Windows (Electron)
+
+```bash
+npm run electron:build            # instalador NSIS (.exe)
+npm run electron:build:portable   # versión portable
+node create-msi.cjs               # instalador MSI (requiere release/win-unpacked)
+```

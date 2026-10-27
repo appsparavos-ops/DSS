@@ -2,24 +2,24 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// base: './' → funciona desde raíz de dominio, subcarpeta Y como app Electron
-// (file://), evitando rutas absolutas que rompen cualquiera de esos escenarios.
+// ── Base path ────────────────────────────────────────────────────────────────
+// GitHub Pages sirve la app en un subpath:  https://<user>.github.io/DSS/
+// Electron y npm run dev/preview usan la raíz ('./').  El workflow de CI
+// (deploy.yml) setea BASE_PATH=/DSS/  automáticamente usando el nombre del repo.
+const base = process.env.BASE_PATH ?? './'
+
+// https://vite.dev/config/
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
-      // 'prompt' para controlar manualmente cuándo aplicar una nueva versión.
       registerType: 'prompt',
       injectRegister: false, // registro manual en src/pwa/registerSW.ts
       strategies: 'generateSW',
-      // NO usar useCredentials: sería crossorigin="use-credentials", que
-      // rompe la instalación si el hosting no responde con CORS+credentials.
       useCredentials: false,
       includeAssets: ['favicon.ico', 'favicon.svg', 'icono.ico', 'icons.svg'],
       manifest: {
-        // Sin 'id' explícito: Chrome deriva el id desde start_url, que es
-        // la forma más compatible (con base:'./' y start_url:'.' el scope
-        // queda automáticamente en el directorio de la app).
         name: 'FIBA Digital Score Sheet',
         short_name: 'DSS',
         description: 'Planilla de Juego Digital Oficial para Baloncesto',
@@ -28,9 +28,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'landscape',
-        // '.' significa "el mismo directorio que el manifest", que es
-        // exactamente el shell de la app y está cubierto por el SW. Esto
-        // funciona en raíz, subcarpeta y en instalaciones viejas/nuevas.
+        // Rutas relativas al manifest → funcionan tanto en subpath como en raíz.
         start_url: '.',
         scope: './',
         categories: ['sports', 'productivity'],
@@ -46,7 +44,6 @@ export default defineConfig({
         skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,webmanifest}'],
         navigateFallback: 'index.html',
-        // No interceptar API ni archivos estáticos reales como SPA nav.
         navigateFallbackDenylist: [/^\/api\//, /\.[a-zA-Z0-9]{2,5}$/],
         runtimeCaching: [
           {
@@ -72,7 +69,6 @@ export default defineConfig({
       devOptions: { enabled: true, type: 'module' }
     })
   ],
-  base: './',
   preview: { allowedHosts: true },
   server: { allowedHosts: true }
 })
