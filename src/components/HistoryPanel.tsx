@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { GameEvent, GameState, PlayerFoulSelection, CoachFoul, PlayerFoulType } from '../types';
 import { createPlayerFoul, formatPlayerFoul, normalizePlayerFoul } from '../utils/foulRules';
+import { allowsTimeouts, getShortPeriodLabel, isRedPeriod } from '../utils/matchRules';
 
 // Opciones para cambiar el tipo de falta al editar un evento
 const PLAYER_FOUL_OPTIONS: PlayerFoulSelection[] = [
@@ -81,7 +82,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent, readOnly }: History
     if (type.startsWith('POINT')) return '#4caf50';
     if (type === 'FOUL') return '#f44336';
     if (type === 'TIMEOUT') {
-      return (period === 1 || period === 3) ? '#c80000' : '#0000b4';
+      return isRedPeriod(state.matchFormat, period) ? '#c80000' : '#0000b4';
     }
     if (type === 'HCC') return '#3f51b5';
     if (type === 'POSSESSION') return '#ff9800';
@@ -119,7 +120,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent, readOnly }: History
                 <option value="ALL">TODAS</option>
                 <option value="POINTS">PUNTOS</option>
                 <option value="FOULS">FALTAS</option>
-                <option value="TIMEOUT">TIEMPOS MUERTOS</option>
+                {allowsTimeouts(state.matchFormat) && <option value="TIMEOUT">TIEMPOS MUERTOS</option>}
                 <option value="HCC">HCC</option>
                 <option value="POSSESSION">POSESIÓN ALTERNA</option>
               </select>
@@ -148,7 +149,7 @@ const HistoryPanel = ({ state, onDeleteEvent, onUpdateEvent, readOnly }: History
                   return (
                     <tr key={event.id} className="history-row" style={{ borderBottom: '1px solid #f5f5f5', transition: 'background 0.2s' }}>
                       <td style={{ padding: '10px', color: '#666', fontWeight: 600 }}>
-                        P{event.period} {event.timeRemaining}
+                        {getShortPeriodLabel(state.matchFormat, event.period)} {event.timeRemaining}
                       </td>
                       <td style={{ fontWeight: 700 }}>
                         {isEditing ? (

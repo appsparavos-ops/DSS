@@ -20,12 +20,13 @@ interface ActionPanelProps {
   selectedTeamTextColor?: string;
   isSelectedPlayerCaptain?: boolean;
   canRequestTimeout?: boolean;
+  timeoutsEnabled: boolean;
   onOpenHistory: () => void;
 }
 
 const ActionPanel: React.FC<ActionPanelProps> = ({ 
   selectedPlayerName, selectedSide, onAddPoint, onAddFoul, onAddCoachFoul, onAddTimeout, onAddHCC, isCoachSelected, selectedTargetType, pendingAction,
-  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout, onOpenHistory
+  selectedPlayerNumber, selectedTeamColor, selectedTeamTextColor, isSelectedPlayerCaptain, canRequestTimeout, timeoutsEnabled, onOpenHistory
 }) => {
   const points = [1, 2, 3];
   const [openFoulGroup, setOpenFoulGroup] = useState<number | null>(null);
@@ -318,7 +319,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
         )}
       </div>
 
-      <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+      {timeoutsEnabled && <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
         <button 
           onClick={onAddTimeout}
           style={{
@@ -333,7 +334,7 @@ const ActionPanel: React.FC<ActionPanelProps> = ({
         >
           TIEMPO MUERTO (TO)
         </button>
-      </div>
+      </div>}
 
       <style>{`
         .action-btn:active { transform: translateY(2px); box-shadow: none !important; }

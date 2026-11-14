@@ -83,9 +83,15 @@ export interface GameEvent {
   description: string;
 }
 
+export type MatchFormat = '4x10' | '6x7';
+
 export interface GameState {
   teamA: Team;
   teamB: Team;
+  /** Si falta en un partido antiguo, se interpreta como 4 cuartos de 10 minutos. */
+  matchFormat?: MatchFormat;
+  /** Evita cambiar el formato una vez que el partido ha comenzado. */
+  hasStarted?: boolean;
   period: number;
   timer: number;
   isRunning: boolean;

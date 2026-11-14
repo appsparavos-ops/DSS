@@ -1,5 +1,6 @@
 import React from 'react';
-import type { Player, CoachFoul, HCCRecord } from '../types';
+import type { Player, CoachFoul, HCCRecord, MatchFormat } from '../types';
+import { isRedPeriod } from '../utils/matchRules';
 import JerseyIcon from './JerseyIcon';
 import { formatPlayerFoul, isPlayerDisqualifiedByFouls, isSpecialDisqualification } from '../utils/foulRules';
 
@@ -10,14 +11,13 @@ interface CompactPlayerRowProps {
   color?: string;
   textColor?: string;
   side: 'A' | 'B';
+  matchFormat: MatchFormat;
   onMoveToEnd?: () => void;
 }
 
-const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected, onSelect, color, textColor, side, onMoveToEnd }) => {
-  const getFoulColor = (period: number) => {
-    if (period === 1 || period === 3) return 'var(--fiba-red)';
-    return 'var(--fiba-blue)';
-  };
+const CompactPlayerRow: React.FC<CompactPlayerRowProps> = ({ player, isSelected, onSelect, color, textColor, side, matchFormat, onMoveToEnd }) => {
+  const getFoulColor = (period: number) =>
+    isRedPeriod(matchFormat, period) ? 'var(--fiba-red)' : 'var(--fiba-blue)';
 
   const isDisqualified = isPlayerDisqualifiedByFouls(player.fouls);
 
@@ -153,6 +153,7 @@ interface CompactTeamListProps {
   teamName: string;
   players: Player[];
   side: 'A' | 'B';
+  matchFormat: MatchFormat;
   selectedPlayerId?: string;
   onSelectPlayer: (id: string) => void;
   color?: string;
@@ -172,7 +173,7 @@ interface CompactTeamListProps {
 const CompactTeamList: React.FC<CompactTeamListProps> = ({ 
   teamName, players, selectedPlayerId, onSelectPlayer, color, textColor,
   headCoach, assistantCoach, headCoachFouls, assistantCoachFouls,
-  onSelectCoach, selectedCoachRole, hcc, side, onMoveToEnd, locked
+  onSelectCoach, selectedCoachRole, hcc, side, matchFormat, onMoveToEnd, locked
 }) => {
   return (
     <div className="compact-team-list-container" style={{ flex: 2, minWidth: '380px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -208,6 +209,7 @@ const CompactTeamList: React.FC<CompactTeamListProps> = ({
             color={color}
             textColor={textColor}
             side={side}
+            matchFormat={matchFormat}
             onMoveToEnd={locked ? undefined : () => onMoveToEnd(player.id)}
           />
         ))}

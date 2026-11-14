@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Team, Player, CatalogTeam } from '../types';
+import type { Team, Player, CatalogTeam, MatchFormat } from '../types';
 import { MAX_PLAYERS, ROSTER_LIMIT } from '../hooks/useGame';
 import { decodeCsvText } from '../utils/csvEncoding';
 import { parseTeamCsvLine } from '../utils/teamCsv';
@@ -8,6 +8,9 @@ import JerseyIcon from './JerseyIcon';
 interface SetupScreenProps {
   teamA: Team;
   teamB: Team;
+  matchFormat: MatchFormat;
+  formatLocked: boolean;
+  onSetMatchFormat: (format: MatchFormat) => void;
   onUpdateTeamName: (side: 'A' | 'B', name: string) => void;
   onUpdateTeamColor: (side: 'A' | 'B', color: string) => void;
   onUpdateTeamTextColor: (side: 'A' | 'B', color: string) => void;
@@ -25,6 +28,9 @@ interface SetupScreenProps {
 const SetupScreen: React.FC<SetupScreenProps> = ({
   teamA,
   teamB,
+  matchFormat,
+  formatLocked,
+  onSetMatchFormat,
   onUpdateTeamName,
   onUpdateTeamColor,
   onUpdateTeamTextColor,
@@ -539,9 +545,35 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
 
   return (
     <div style={{ padding: '1rem' }}>
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+      <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
         <h2 style={{ color: 'var(--fiba-blue)' }}>PREPARACIÓN DEL PARTIDO</h2>
         <p style={{ color: 'var(--text-muted)' }}>Configura los equipos antes de comenzar el acta oficial</p>
+      </div>
+
+      <div className="premium-card" style={{ maxWidth: '850px', margin: '0 auto 1.5rem', padding: '1rem 1.25rem' }}>
+        <label htmlFor="match-format" style={{ display: 'block', color: 'var(--fiba-blue)', fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+          FORMATO DEL PARTIDO
+        </label>
+        <select
+          id="match-format"
+          value={matchFormat}
+          onChange={e => onSetMatchFormat(e.target.value as MatchFormat)}
+          disabled={formatLocked}
+          style={{ width: '100%', maxWidth: '420px', padding: '0.65rem', border: '2px solid #d7deea', borderRadius: '8px', fontSize: '1rem', fontWeight: 700 }}
+        >
+          <option value="4x10">4 cuartos de 10 minutos</option>
+          <option value="6x7">6 sextos de 7 minutos</option>
+        </select>
+        <p style={{ fontSize: '0.8rem', color: '#555', margin: '0.6rem 0 0' }}>
+          {matchFormat === '6x7'
+            ? 'Sin tiempos muertos. Las faltas colectivas se reinician en cada sexto; los tiros corresponden desde la 4.ª falta. Se permite el empate, sin prórroga.'
+            : 'Cuatro cuartos de 10 minutos, con tiempos muertos y prórroga en caso de empate.'}
+        </p>
+        {formatLocked && (
+          <p style={{ fontSize: '0.8rem', color: '#a14300', fontWeight: 700, margin: '0.5rem 0 0' }}>
+            El formato queda bloqueado al comenzar el partido. Para cambiarlo, reiniciá y prepará un partido nuevo.
+          </p>
+        )}
       </div>
 
       <div className="setup-team-tabs">

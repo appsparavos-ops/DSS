@@ -20,13 +20,32 @@ URL final: `https://<tu-usuario>.github.io/DSS/`
 
 ## Desarrollo local
 
+Se recomienda Node.js 22.12 o superior. En la carpeta del proyecto:
+
 ```bash
-npm install
+npm ci --legacy-peer-deps
 npm run dev          # http://localhost:5173
 npm run build        # build producción en dist/
-npm test             # pruebas de importación CSV
+npm test             # pruebas de reglas e importación CSV
 npm run preview      # preview de la build
 ```
+
+## Formato del partido
+
+En **Preparación del partido**, antes de comenzar el acta, elegí:
+
+- **4 cuartos de 10 minutos**: opción predeterminada. Conserva los tiempos
+  muertos y la posibilidad de prórroga; no permite cerrar el partido empatado.
+- **6 sextos de 7 minutos**: cada sexto comienza en 07:00 y sus faltas
+  colectivas empiezan de cero. Desde la cuarta falta del sexto se advierte
+  que corresponden tiros cuando la sanción lo indique. No hay tiempos muertos
+  ni prórroga, y se puede cerrar el partido empatado al llegar al sexto.
+
+El marcador, el historial y el PDF se adaptan al formato. El formato queda
+bloqueado al comenzar, también si volvés a **EDITAR**, para proteger el acta;
+para cambiarlo hay que reiniciar y preparar un partido nuevo. Se guarda junto
+al partido (incluidos archivos `.dss` y el backup). Los partidos antiguos que
+no guardaban formato se interpretan como 4 cuartos de 10 minutos.
 
 ## Importar jugadores desde CSV
 

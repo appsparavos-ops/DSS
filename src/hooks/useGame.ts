@@ -7,9 +7,16 @@ import type {
   PlayerFoulType,
   PlayerFoulSelection,
   CoachFoul,
-  CatalogTeam
+  CatalogTeam,
+  MatchFormat
 } from '../types';
 import { createPlayerFoul, formatPlayerFoul, isPlayerDisqualifiedByFouls } from '../utils/foulRules';
+import {
+  normalizeMatchFormat, getRegulationPeriods, getPeriodDuration, getTeamFoulIndex,
+  allowsTimeouts, allowsOvertime, canFinishMatch, getElapsedMinute,
+  hasMatchStarted,
+} from '../utils/matchRules';
+import { rebuildGameFromHistory } from '../utils/gameHistory';
 import { STORAGE_KEYS, readJSON, writeJSON, migrateLegacyStorage } from '../services/storage';
 import { generateMatchCode, pushMatch, pullMatch, type SyncStatus, type RecoverResult } from '../services/sync';
 
@@ -46,12 +53,24 @@ const createEmptyPlayer = (): Player => ({
   hasEntered: false,
 });
 
-// Migración al cargar estados guardados (solo en SETUP, para no alterar partidos en juego):
-// - corrige jugadores vacíos que tenían isInRoster: true por el bug inicial
-// - completa la plantilla hasta MAX_PLAYERS (los partidos viejos traían solo 12 filas)
+// Los partidos antiguos sin modalidad se conservan como 4 × 10. En SETUP se
+// completan las filas de jugadores, pero nunca se borra el progreso del partido.
 const migrateGameState = (gs: GameState): GameState => {
-  // Partidos viejos pueden no tener la flecha de posesión
-  const base: GameState = { ...gs, possessionArrow: gs.possessionArrow ?? null };
+  const matchFormat = normalizeMatchFormat(gs.matchFormat);
+  const completeFouls = (team: Team): Team => {
+    const foulsPerPeriod = [...(team.foulsPerPeriod || [])];
+    while (foulsPerPeriod.length < getRegulationPeriods(matchFormat)) foulsPerPeriod.push(0);
+    return { ...team, foulsPerPeriod };
+  };
+  const base: GameState = {
+    ...gs,
+    matchFormat,
+    possessionArrow: gs.possessionArrow ?? null,
+    activeTimeout: allowsTimeouts(matchFormat) ? (gs.activeTimeout ?? null) : null,
+    teamA: completeFouls(gs.teamA),
+    teamB: completeFouls(gs.teamB),
+  };
+  base.hasStarted = hasMatchStarted(base);
   if (base.status !== 'SETUP') return base;
   const migrateTeam = (team: Team): Team => {
     const players = team.players.map(p =>
@@ -93,6 +112,8 @@ export const useGame = () => {
     return {
       teamA: createEmptyTeam('EQUIPO A', '#1a237e'),
       teamB: createEmptyTeam('EQUIPO B', '#b71c1c'),
+      matchFormat: '4x10',
+      hasStarted: false,
       period: 1,
       timer: INITIAL_TIMER,
       isRunning: false,
@@ -300,11 +321,14 @@ export const useGame = () => {
       }
 
       const updatedFoulsPerPeriod = [...team.foulsPerPeriod];
-      const periodIndex = Math.min(prev.period - 1, 3);
-      updatedFoulsPerPeriod[periodIndex]++;
+      const periodIndex = getTeamFoulIndex(prev.matchFormat, prev.period);
+      updatedFoulsPerPeriod[periodIndex] = (updatedFoulsPerPeriod[periodIndex] || 0) + 1;
 
       if (updatedFoulsPerPeriod[periodIndex] === 4) {
-        setTimeout(() => alert(`¡BONUS!\n${team.name} ha llegado a su 4ª falta colectiva en el periodo.`), 10);
+        const message = normalizeMatchFormat(prev.matchFormat) === '6x7'
+          ? `¡4ª FALTA COLECTIVA!\n${team.name} llegó a la cuarta falta del sexto. Desde esta falta corresponden tiros cuando la sanción lo indique.`
+          : `¡BONUS!\n${team.name} ha llegado a su 4ª falta colectiva en el periodo.`;
+        setTimeout(() => alert(message), 10);
       }
 
       const newEvent: GameEvent = {
@@ -368,112 +392,13 @@ export const useGame = () => {
   }, []);
 
   const deleteEvent = useCallback((eventId: string) => {
-    guardedSet((prev) => {
-      const newHistory = prev.history.filter(e => e.id !== eventId);
-      const buildCleanTeam = (originalTeam: Team): Team => ({
-        ...originalTeam,
-        headCoachFouls: [],
-        assistantCoachFouls: [],
-        score: 0,
-        foulsPerPeriod: [0, 0, 0, 0],
-        timeouts: [],
-        hcc: undefined,
-        players: originalTeam.players.map(p => ({ ...p, points: 0, fouls: [] }))
-      });
-
-      const newTeamA = buildCleanTeam(prev.teamA);
-      const newTeamB = buildCleanTeam(prev.teamB);
-
-      let possArrow: 'A' | 'B' | null = null;
-
-      [...newHistory].reverse().forEach(event => {
-        const team = event.teamSide === 'A' ? newTeamA : newTeamB;
-        if (event.type.startsWith('POINT')) {
-          const pts = event.type === 'POINT1' ? 1 : event.type === 'POINT2' ? 2 : 3;
-          team.score += pts;
-          const player = team.players.find(p => p.id === event.playerId);
-          if (player) player.points += pts;
-        } else if (event.type === 'FOUL') {
-          const isCoachEvent = event.playerId === 'HC' || event.playerId === 'AC';
-          if (isCoachEvent) {
-            const role = event.playerId === 'AC' ? 'assistantCoachFouls' : 'headCoachFouls';
-            (team as any)[role].push(event.subType as CoachFoul);
-          } else if (event.playerId) {
-            const player = team.players.find(p => p.id === event.playerId);
-            if (player) player.fouls.push({
-              type: event.subType as PlayerFoulType,
-              period: event.period,
-              ...(event.foulPenalty ? { penalty: event.foulPenalty } : {})
-            });
-            const periodIndex = Math.min(event.period - 1, 3);
-            team.foulsPerPeriod[periodIndex]++;
-          }
-        } else if (event.type === 'TIMEOUT') {
-          const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
-          team.timeouts.push({ period: event.period, minute: 10 - minsRemaining });
-        } else if (event.type === 'HCC') {
-          const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
-          team.hcc = { period: event.period, minute: 10 - minsRemaining };
-        } else if (event.type === 'POSSESSION') {
-          possArrow = event.teamSide;
-        }
-      });
-      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory, possessionArrow: possArrow };
-    });
+    guardedSet(prev => rebuildGameFromHistory(prev, prev.history.filter(e => e.id !== eventId)));
   }, []);
 
   const updateEvent = useCallback((eventId: string, updates: Partial<GameEvent>) => {
-    guardedSet((prev) => {
-      const newHistory = prev.history.map(e => e.id === eventId ? { ...e, ...updates } : e);
-      const buildCleanTeam = (originalTeam: Team): Team => ({
-        ...originalTeam,
-        headCoachFouls: [],
-        assistantCoachFouls: [],
-        score: 0,
-        foulsPerPeriod: [0, 0, 0, 0],
-        timeouts: [],
-        hcc: undefined,
-        players: originalTeam.players.map(p => ({ ...p, points: 0, fouls: [] }))
-      });
-      const newTeamA = buildCleanTeam(prev.teamA);
-      const newTeamB = buildCleanTeam(prev.teamB);
-
-      let possArrow: 'A' | 'B' | null = null;
-
-      [...newHistory].reverse().forEach(event => {
-        const team = event.teamSide === 'A' ? newTeamA : newTeamB;
-        if (event.type.startsWith('POINT')) {
-          const pts = event.type === 'POINT1' ? 1 : event.type === 'POINT2' ? 2 : 3;
-          team.score += pts;
-          const player = team.players.find(p => p.id === event.playerId);
-          if (player) player.points += pts;
-        } else if (event.type === 'FOUL') {
-          const isCoachEvent = event.playerId === 'HC' || event.playerId === 'AC';
-          if (isCoachEvent) {
-            const role = event.playerId === 'AC' ? 'assistantCoachFouls' : 'headCoachFouls';
-            (team as any)[role].push(event.subType as CoachFoul);
-          } else if (event.playerId) {
-            const player = team.players.find(p => p.id === event.playerId);
-            if (player) player.fouls.push({
-              type: event.subType as PlayerFoulType,
-              period: event.period,
-              ...(event.foulPenalty ? { penalty: event.foulPenalty } : {})
-            });
-            const periodIndex = Math.min(event.period - 1, 3);
-            team.foulsPerPeriod[periodIndex]++;
-          }
-        } else if (event.type === 'TIMEOUT') {
-          const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
-          team.timeouts.push({ period: event.period, minute: 10 - minsRemaining });
-        } else if (event.type === 'HCC') {
-          const minsRemaining = parseInt(event.timeRemaining.split(':')[0]);
-          team.hcc = { period: event.period, minute: 10 - minsRemaining };
-        } else if (event.type === 'POSSESSION') {
-          possArrow = event.teamSide;
-        }
-      });
-      return { ...prev, teamA: newTeamA, teamB: newTeamB, history: newHistory, possessionArrow: possArrow };
-    });
+    guardedSet(prev => rebuildGameFromHistory(
+      prev, prev.history.map(e => e.id === eventId ? { ...e, ...updates } : e)
+    ));
   }, []);
 
   const setTeamPlayers = useCallback((side: 'A' | 'B', players: Player[]) => {
@@ -575,6 +500,9 @@ export const useGame = () => {
 
   const addTimeout = useCallback((teamSide: 'A' | 'B') => {
     guardedSet((prev) => {
+      // La modalidad de seis sextos no permite registrar tiempos muertos,
+      // incluso si una acción pendiente o una llamada externa intenta hacerlo.
+      if (!allowsTimeouts(prev.matchFormat)) return prev;
       const teamKey = teamSide === 'A' ? 'teamA' : 'teamB';
       const team = prev[teamKey];
       const firstHalfTO = team.timeouts.filter(t => t.period <= 2).length;
@@ -602,7 +530,7 @@ export const useGame = () => {
         }
       }
 
-      const minute = 10 - Math.floor(prev.timer / 60);
+      const minute = getElapsedMinute(prev.matchFormat, prev.period, prev.timer);
       const newEvent: GameEvent = {
         id: Math.random().toString(36).substr(2, 9),
         timestamp: new Date().toISOString(),
@@ -635,7 +563,7 @@ export const useGame = () => {
       const team = prev[teamKey];
       if (team.hcc) return prev;
 
-      const minute = 10 - Math.floor(prev.timer / 60);
+      const minute = getElapsedMinute(prev.matchFormat, prev.period, prev.timer);
       const newEvent: GameEvent = {
         id: Math.random().toString(36).substr(2, 9),
         timestamp: new Date().toISOString(),
@@ -731,6 +659,7 @@ export const useGame = () => {
       return {
         ...prev,
         status: 'PLAYING',
+        hasStarted: true,
         // Backup online automático: cada partido nuevo genera su código y se
         // sincroniza solo (el push debounced se dispara con el cambio de estado)
         syncCode: prev.syncCode || generateMatchCode(),
@@ -740,18 +669,41 @@ export const useGame = () => {
     });
   }, []);
 
-  const updateGameInfo = useCallback((updates: Partial<GameState>) => {
+  // El formato solo puede elegirse antes de comenzar, para no reinterpretar
+  // faltas, puntos o minutos ya registrados al volver mediante EDITAR.
+  const setMatchFormat = useCallback((format: MatchFormat) => {
+    guardedSet(prev => {
+      if (prev.status !== 'SETUP' || hasMatchStarted(prev)) return prev;
+      const matchFormat = normalizeMatchFormat(format);
+      if (matchFormat === normalizeMatchFormat(prev.matchFormat)) return prev;
+      const emptyFouls = () => Array.from({ length: getRegulationPeriods(matchFormat) }, () => 0);
+      return {
+        ...prev,
+        matchFormat,
+        hasStarted: false,
+        timer: getPeriodDuration(matchFormat, 1),
+        activeTimeout: null,
+        teamA: { ...prev.teamA, foulsPerPeriod: emptyFouls() },
+        teamB: { ...prev.teamB, foulsPerPeriod: emptyFouls() },
+      };
+    });
+  }, [guardedSet]);
+
+  type GameInfo = Pick<GameState, 'competition' | 'venue' | 'date' | 'timeStart' | 'crewChief' | 'umpire1' | 'umpire2' | 'scorer' | 'timerOfficial' | 'shotClockOperator'>;
+  const updateGameInfo = useCallback((updates: Partial<GameInfo>) => {
     guardedSet((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const goToSetup = useCallback(() => {
-    guardedSet((prev) => ({ ...prev, status: 'SETUP', isRunning: false }));
+    guardedSet((prev) => ({ ...prev, status: 'SETUP', hasStarted: true, isRunning: false }));
   }, []);
 
   const resetGame = useCallback(() => {
     setState({
       teamA: createEmptyTeam('EQUIPO A', '#1a237e'),
       teamB: createEmptyTeam('EQUIPO B', '#b71c1c'),
+      matchFormat: '4x10',
+      hasStarted: false,
       period: 1,
       timer: INITIAL_TIMER,
       isRunning: false,
@@ -774,11 +726,13 @@ export const useGame = () => {
 
   const nextPeriod = useCallback(() => {
     guardedSet((prev) => {
-      const isOT = prev.period >= 4;
+      if (prev.status !== 'PLAYING') return prev;
+      if (!allowsOvertime(prev.matchFormat) && prev.period >= getRegulationPeriods(prev.matchFormat)) return prev;
+      const period = prev.period + 1;
       return {
         ...prev,
-        period: prev.period + 1,
-        timer: isOT ? 300 : INITIAL_TIMER,
+        period,
+        timer: getPeriodDuration(prev.matchFormat, period),
         isRunning: false,
         activeTimeout: null,
       };
@@ -786,7 +740,9 @@ export const useGame = () => {
   }, []);
 
   const finishGame = useCallback(() => {
-    setState((prev) => ({ ...prev, status: 'FINISHED', isRunning: false }));
+    setState(prev => prev.status === 'PLAYING' && canFinishMatch(prev)
+      ? { ...prev, status: 'FINISHED', isRunning: false, activeTimeout: null }
+      : prev);
   }, []);
 
   const saveGameToLibrary = useCallback((customName: string) => {
@@ -874,12 +830,16 @@ export const useGame = () => {
     });
   }, []);
 
-  const exportGameToFile = useCallback(async (customName?: string, subfolder: 'partidos' | 'plantillas' = 'partidos') => {
+  const exportGameToFile = useCallback(async (
+    customName?: string,
+    subfolder: 'partidos' | 'plantillas' = 'partidos',
+    gameData: GameState = state,
+  ) => {
     const safeStr = (s: string) => (s || '').replace(/[^a-zA-Z0-9]/g, '_');
-    const fileName = customName || `${safeStr(state.competition)}_${safeStr(state.teamA.name)}_${safeStr(state.teamB.name)}_${safeStr(state.date)}_${safeStr(state.timeStart)}_${safeStr(state.venue)}`;
+    const fileName = customName || `${safeStr(gameData.competition)}_${safeStr(gameData.teamA.name)}_${safeStr(gameData.teamB.name)}_${safeStr(gameData.date)}_${safeStr(gameData.timeStart)}_${safeStr(gameData.venue)}`;
     const win = window as any;
     if (win.electronAPI) {
-      const result = await win.electronAPI.saveMatch(state, fileName, subfolder);
+      const result = await win.electronAPI.saveMatch(gameData, fileName, subfolder);
       if (result.success) {
         alert(`Partido guardado con éxito en:\n${result.filePath}`);
       } else if (result.error) {
@@ -887,7 +847,7 @@ export const useGame = () => {
       }
     } else {
       // Fallback para web: Descarga directa
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(gameData));
       const downloadAnchorNode = document.createElement('a');
       downloadAnchorNode.setAttribute("href", dataStr);
       downloadAnchorNode.setAttribute("download", fileName + ".dss");
@@ -972,6 +932,7 @@ export const useGame = () => {
     adjustTimer,
     updateEvent,
     updateGameInfo,
+    setMatchFormat,
     startGame,
     goToSetup,
     resetGame,

@@ -1,10 +1,13 @@
 import { jsPDF } from 'jspdf';
 import type { GameState, PlayerFoul, Team } from '../types';
 import { isPlayerDisqualifiedByFouls, isSpecialDisqualification, normalizePlayerFoul } from './foulRules';
+import { getTeamFoulIndex, isRedPeriod, normalizeMatchFormat } from './matchRules';
 
 export const generatePDF = (state: GameState) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const { teamA, teamB, history } = state;
+  const matchFormat = normalizeMatchFormat(state.matchFormat);
+  const isSixths = matchFormat === '6x7';
   const pageWidth = doc.internal.pageSize.getWidth();
 
   const getSortedPlayers = (players: any[]) => {
@@ -30,14 +33,8 @@ export const generatePDF = (state: GameState) => {
     }
   };
 
-  const getTeamFoulsInPeriod = (side: 'A' | 'B', period: number) => {
-    return history.filter(ev => ev.teamSide === side && ev.period === period && ev.type === 'FOUL').length;
-  };
-
-  const getPeriodColor = (p: number): [number, number, number] => {
-    if (p === 1 || p === 3) return [200, 0, 0];
-    return [0, 0, 180];
-  };
+  const getPeriodColor = (p: number): [number, number, number] =>
+    isRedPeriod(matchFormat, p) ? [200, 0, 0] : [0, 0, 180];
 
   const drawPlayerFoul = (foul: PlayerFoul, x: number, y: number) => {
     const normalized = normalizePlayerFoul(foul);
@@ -63,6 +60,8 @@ export const generatePDF = (state: GameState) => {
   // ─── HEADER ───
   doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
   doc.text('FIBA SCORE SHEET', pageWidth / 2, 10, { align: 'center' });
+  doc.setFontSize(7);
+  doc.text(isSixths ? '6 SEXTOS DE 7 MINUTOS' : '4 CUARTOS DE 10 MINUTOS', pageWidth - 10, 10, { align: 'right' });
   
   doc.setFontSize(8.5);
   // Fila 1: Equipos
@@ -90,12 +89,16 @@ export const generatePDF = (state: GameState) => {
     
     curY += 4;
     doc.setFontSize(7);
-    doc.text('TIME OUTS', 10, curY);
-    doc.text('TEAM FOULS', 40, curY);
+    if (isSixths) {
+      doc.text('FALTAS COLECTIVAS POR SEXTO', 10, curY);
+    } else {
+      doc.text('TIME OUTS', 10, curY);
+      doc.text('TEAM FOULS', 40, curY);
+    }
 
     const drawFoulBoxes = (qx: number, qy: number, qNum: number) => {
-      doc.text(`Q${qNum}`, qx, qy);
-      const qf = getTeamFoulsInPeriod(label, qNum);
+      doc.text(`${isSixths ? 'S' : 'Q'}${qNum}`, qx, qy);
+      const qf = team.foulsPerPeriod[getTeamFoulIndex(matchFormat, qNum)] || 0;
       const isFinished = qNum < state.period || (qNum === state.period && state.status === 'FINISHED');
       const c = getPeriodColor(qNum);
       for(let f=1; f<=4; f++) {
@@ -113,72 +116,88 @@ export const generatePDF = (state: GameState) => {
       doc.setTextColor(0); doc.setDrawColor(0);
     };
 
-    // Fila 3: H1 (2 TO) + Q1 + Q2
-    curY += 3.5;
-    doc.text('H1', 10, curY);
-    const isH1Finished = state.period >= 3;
-    [0, 1].forEach((idx) => {
-      const tx = 14 + (idx * 4.5);
-      doc.setDrawColor(0); doc.setLineWidth(0.12); doc.rect(tx, curY - 2.2, 3.5, 3);
-      const to = team.timeouts.filter(t => t.period <= 2)[idx];
-      if (to) {
-        const tc = getPeriodColor(to.period);
-        doc.setTextColor(tc[0], tc[1], tc[2]);
-        doc.text(String(to.minute), tx + 0.8, curY - 0.2);
-        doc.setTextColor(0);
-      } else if (isH1Finished) {
-        doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
-        doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
-      }
-    });
-    drawFoulBoxes(40, curY, 1);
-    drawFoulBoxes(65, curY, 2);
+    if (isSixths) {
+      // Dos filas de tres sextos: cada contador es independiente.
+      curY += 3.5;
+      drawFoulBoxes(10, curY, 1);
+      drawFoulBoxes(35, curY, 2);
+      drawFoulBoxes(60, curY, 3);
+      curY += 4;
+      drawFoulBoxes(10, curY, 4);
+      drawFoulBoxes(35, curY, 5);
+      drawFoulBoxes(60, curY, 6);
+      curY += 4;
+      doc.text('SIN TIEMPOS MUERTOS', 10, curY);
+    } else {
+      // Fila 3: H1 (2 TO) + Q1 + Q2
+      curY += 3.5;
+      doc.text('H1', 10, curY);
+      const isH1Finished = state.period >= 3;
+      [0, 1].forEach((idx) => {
+        const tx = 14 + (idx * 4.5);
+        doc.setDrawColor(0); doc.setLineWidth(0.12); doc.rect(tx, curY - 2.2, 3.5, 3);
+        const to = team.timeouts.filter(t => t.period <= 2)[idx];
+        if (to) {
+          const tc = getPeriodColor(to.period);
+          doc.setTextColor(tc[0], tc[1], tc[2]);
+          doc.text(String(to.minute), tx + 0.8, curY - 0.2);
+          doc.setTextColor(0);
+        } else if (isH1Finished) {
+          doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
+          doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
+        }
+      });
+      drawFoulBoxes(40, curY, 1);
+      drawFoulBoxes(65, curY, 2);
 
-    // Fila 4: H2 (3 TO) + Q3 + Q4
-    curY += 4;
-    doc.text('H2', 10, curY);
-    const isH2Finished = state.period >= 5 || state.status === 'FINISHED';
-    [0, 1, 2].forEach((idx) => {
-      const tx = 14 + (idx * 4.5);
-      doc.setDrawColor(0); doc.setLineWidth(0.12); doc.rect(tx, curY - 2.2, 3.5, 3);
-      const to = team.timeouts.filter(t => t.period >= 3 && t.period <= 4)[idx];
-      if (to) {
-        const tc = getPeriodColor(to.period);
-        doc.setTextColor(tc[0], tc[1], tc[2]);
-        doc.text(String(to.minute), tx + 0.8, curY - 0.2);
-        doc.setTextColor(0);
-      } else if (isH2Finished) {
-        doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
-        doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
-      }
-    });
-    drawFoulBoxes(40, curY, 3);
-    drawFoulBoxes(65, curY, 4);
+      // Fila 4: H2 (3 TO) + Q3 + Q4
+      curY += 4;
+      doc.text('H2', 10, curY);
+      const isH2Finished = state.period >= 5 || state.status === 'FINISHED';
+      [0, 1, 2].forEach((idx) => {
+        const tx = 14 + (idx * 4.5);
+        doc.setDrawColor(0); doc.setLineWidth(0.12); doc.rect(tx, curY - 2.2, 3.5, 3);
+        const to = team.timeouts.filter(t => t.period >= 3 && t.period <= 4)[idx];
+        if (to) {
+          const tc = getPeriodColor(to.period);
+          doc.setTextColor(tc[0], tc[1], tc[2]);
+          doc.text(String(to.minute), tx + 0.8, curY - 0.2);
+          doc.setTextColor(0);
+        } else if (isH2Finished) {
+          doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
+          doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
+        }
+      });
+      drawFoulBoxes(40, curY, 3);
+      drawFoulBoxes(65, curY, 4);
 
-    // Fila 5: OT (3 TO) + HCC
-    curY += 4;
-    doc.text('OT', 10, curY);
-    [0, 1, 2].forEach((idx) => {
-      const tx = 14 + (idx * 4.5);
-      doc.rect(tx, curY - 2.2, 3.5, 3);
-      const to = team.timeouts.filter(t => t.period >= 5)[idx];
-      if (to) {
-        const tc = getPeriodColor(to.period);
-        doc.setTextColor(tc[0], tc[1], tc[2]);
-        doc.text(String(to.minute), tx + 0.8, curY - 0.2);
-        doc.setTextColor(0);
-      } else if (state.status === 'FINISHED') {
-        doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
-        doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
-      }
-    });
-    doc.text('HCC', 40, curY);
-    doc.rect(48, curY - 2.2, 3.5, 3); doc.rect(53, curY - 2.2, 3.5, 3);
+      // Fila 5: OT (3 TO) + HCC
+      curY += 4;
+      doc.text('OT', 10, curY);
+      [0, 1, 2].forEach((idx) => {
+        const tx = 14 + (idx * 4.5);
+        doc.rect(tx, curY - 2.2, 3.5, 3);
+        const to = team.timeouts.filter(t => t.period >= 5)[idx];
+        if (to) {
+          const tc = getPeriodColor(to.period);
+          doc.setTextColor(tc[0], tc[1], tc[2]);
+          doc.text(String(to.minute), tx + 0.8, curY - 0.2);
+          doc.setTextColor(0);
+        } else if (state.status === 'FINISHED') {
+          doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
+          doc.line(tx + 0.5, curY - 0.7, tx + 3, curY - 0.7);
+        }
+      });
+    }
+    const hccX = isSixths ? 60 : 40;
+    doc.setTextColor(0); doc.setDrawColor(0);
+    doc.text('HCC', hccX, curY);
+    doc.rect(hccX + 8, curY - 2.2, 3.5, 3); doc.rect(hccX + 13, curY - 2.2, 3.5, 3);
     if (team.hcc) {
       const hccColor = getPeriodColor(team.hcc.period);
       doc.setTextColor(hccColor[0], hccColor[1], hccColor[2]);
-      doc.text(String(team.hcc.period), 48 + 1.75, curY - 0.2, { align: 'center' });
-      doc.text(String(team.hcc.minute), 53 + 1.75, curY - 0.2, { align: 'center' });
+      doc.text(String(team.hcc.period), hccX + 9.75, curY - 0.2, { align: 'center' });
+      doc.text(String(team.hcc.minute), hccX + 14.75, curY - 0.2, { align: 'center' });
       doc.setTextColor(0);
     }
 
@@ -378,46 +397,49 @@ export const generatePDF = (state: GameState) => {
 
   // ─── SCORES BY PERIOD ───
   const scoreY = 252;
+  const periods = isSixths ? [1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5];
+  const sHeaders = isSixths
+    ? ['EQUIPO', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'TOTAL']
+    : ['EQUIPO', '1ST', '2ND', '3RD', '4TH', 'OT', 'TOTAL'];
+  const scoreWidths = isSixths ? [18, 9, 9, 9, 9, 9, 9, 10] : [20, 10, 10, 10, 10, 10, 12];
   const getScoreInPeriod = (side: 'A' | 'B', period: number) => {
-    return history.filter(ev => ev.teamSide === side && ev.period === period && ev.type.startsWith('POINT'))
+    return history.filter(ev => ev.teamSide === side && ev.type.startsWith('POINT') &&
+      (!isSixths && period === 5 ? ev.period >= 5 : ev.period === period))
       .reduce((sum, ev) => sum + (ev.type === 'POINT1' ? 1 : ev.type === 'POINT2' ? 2 : ev.type === 'POINT3' ? 3 : 0), 0);
   };
   doc.setTextColor(0); doc.setDrawColor(0); doc.setLineWidth(0.12);
   doc.setFontSize(9); doc.setFont('helvetica', 'bold');
   doc.text('RESULTADOS PARCIALES:', 10, scoreY);
-  drawGrid(10, scoreY + 2, 3, 7, 4.5, [20, 10, 10, 10, 10, 10, 12]);
-  const sHeaders = ['EQUIPO', '1ST', '2ND', '3RD', '4TH', 'OT', 'TOTAL'];
+  drawGrid(10, scoreY + 2, 3, scoreWidths.length, 4.5, scoreWidths);
+  doc.setFontSize(isSixths ? 7.5 : 9);
   let curSX = 10;
-  sHeaders.forEach((h, i) => {
-    const w = i === 0 ? 20 : (i === 6 ? 12 : 10);
-    doc.text(h, curSX + w/2, scoreY + 5.2, { align: 'center' });
-    curSX += w;
+  sHeaders.forEach((header, i) => {
+    doc.text(header, curSX + scoreWidths[i] / 2, scoreY + 5.2, { align: 'center' });
+    curSX += scoreWidths[i];
   });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.setTextColor(0); doc.text('EQUIPO A', 12, scoreY + 9.5); 
-  for (let p = 1; p <= 5; p++) {
-    const pts = getScoreInPeriod('A', p);
-    if (pts > 0 || p <= state.period) {
-      const c = getPeriodColor(p); doc.setTextColor(c[0], c[1], c[2]);
-      doc.text(String(pts), 20 + 10 * p + 5, scoreY + 9.5, { align: 'center' });
-    } else if (state.status === 'FINISHED') {
-      doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
-      doc.line(20 + 10 * p + 1.5, scoreY + 8.5, 20 + 10 * p + 8.5, scoreY + 8.5);
-    }
-  }
-  doc.setTextColor(0); doc.text(String(teamA.score), 88, scoreY + 9.5, { align: 'center' }); 
-  doc.text('EQUIPO B', 12, scoreY + 14); 
-  for (let p = 1; p <= 5; p++) {
-    const pts = getScoreInPeriod('B', p);
-    if (pts > 0 || p <= state.period) {
-      const c = getPeriodColor(p); doc.setTextColor(c[0], c[1], c[2]);
-      doc.text(String(pts), 20 + 10 * p + 5, scoreY + 14, { align: 'center' });
-    } else if (state.status === 'FINISHED') {
-      doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
-      doc.line(20 + 10 * p + 1.5, scoreY + 13, 20 + 10 * p + 8.5, scoreY + 13);
-    }
-  }
-  doc.setTextColor(0); doc.text(String(teamB.score), 88, scoreY + 14, { align: 'center' });
+
+  const drawScoreRow = (side: 'A' | 'B', y: number, total: number) => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(0);
+    doc.text(`EQUIPO ${side}`, 11, y);
+    let x = 10 + scoreWidths[0];
+    periods.forEach((period, i) => {
+      const width = scoreWidths[i + 1];
+      const points = getScoreInPeriod(side, period);
+      if (points > 0 || period <= state.period) {
+        const color = getPeriodColor(period);
+        doc.setTextColor(color[0], color[1], color[2]);
+        doc.text(String(points), x + width / 2, y, { align: 'center' });
+      } else if (state.status === 'FINISHED') {
+        doc.setDrawColor(0, 0, 180); doc.setLineWidth(0.3);
+        doc.line(x + 1.5, y - 1, x + width - 1.5, y - 1);
+      }
+      x += width;
+    });
+    doc.setTextColor(0);
+    doc.text(String(total), x + scoreWidths[scoreWidths.length - 1] / 2, y, { align: 'center' });
+  };
+  drawScoreRow('A', scoreY + 9.5, teamA.score);
+  drawScoreRow('B', scoreY + 14, teamB.score);
 
   // ─── FOOTER ───
   doc.setTextColor(0); doc.setDrawColor(0);

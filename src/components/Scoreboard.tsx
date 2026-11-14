@@ -1,4 +1,6 @@
 import React from 'react';
+import type { HCCRecord, MatchFormat, TimeoutRecord } from '../types';
+import { allowsTimeouts, getPeriodLabel, getShortPeriodLabel } from '../utils/matchRules';
 import JerseyIcon from './JerseyIcon';
 
 
@@ -16,10 +18,11 @@ interface ScoreboardProps {
   scoreB: number;
   teamAFouls: number;
   teamBFouls: number;
-  timeoutsA: any[]; // Using any[] for now to avoid import issues if not exported, but it refers to TimeoutRecord[]
-  timeoutsB: any[];
-  hccA?: any;
-  hccB?: any;
+  timeoutsA: TimeoutRecord[];
+  timeoutsB: TimeoutRecord[];
+  hccA?: HCCRecord;
+  hccB?: HCCRecord;
+  matchFormat: MatchFormat;
   period: number;
   timer: number;
   isRunning: boolean;
@@ -77,14 +80,16 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
   teamAName, teamBName, logoA, logoB,
   teamAColor, teamATextColor, teamBColor, teamBTextColor,
   scoreA, scoreB, teamAFouls, teamBFouls, timeoutsA, timeoutsB, hccA, hccB, 
-  period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout,
+  matchFormat, period, timer, isRunning, onToggleTimer, onAddTimeout, activeTimeout, onCancelTimeout,
   possessionArrow, onSetPossession, possessionLocked, locked
 }) => {
+  const showTimeouts = allowsTimeouts(matchFormat);
   const isFirstHalf = period <= 2;
-  const isOT = period >= 5;
+  const isOT = showTimeouts && period >= 5;
   const maxTO = isOT ? 1 : (isFirstHalf ? 2 : 3);
+  const hccPeriod = (p: number) => matchFormat === '6x7' || p > 4 ? getShortPeriodLabel(matchFormat, p) : String(p);
 
-  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: any[]) => {
+  const renderTeamFoulsAndTO = (side: 'A' | 'B', fouls: number, timeouts: TimeoutRecord[]) => {
     const halfTimeouts = isOT 
       ? timeouts.filter(t => t.period === period) 
       : (isFirstHalf ? timeouts.filter(t => t.period <= 2) : timeouts.filter(t => t.period >= 3 && t.period <= 4));
@@ -92,7 +97,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: side === 'A' ? 'flex-start' : 'flex-end', minWidth: '80px' }}>
         {/* Faltas de equipo */}
-        <div style={{ display: 'flex', gap: '3px' }}>
+        <div style={{ display: 'flex', gap: '3px' }} aria-label={`${fouls} faltas colectivas, equipo ${side}`}>
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} style={{
               width: '12px', height: '6px', borderRadius: '2px',
@@ -101,8 +106,13 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             }} />
           ))}
         </div>
-        {/* Timeouts */}
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        {matchFormat === '6x7' && fouls >= 3 && (
+          <span role="status" style={{ color: '#ffd54f', fontSize: '0.62rem', fontWeight: 900, whiteSpace: 'nowrap' }}>
+            {fouls === 3 ? 'PRÓXIMA: 4.ª FALTA' : 'TIROS DESDE LA 4.ª'}
+          </span>
+        )}
+        {/* En seis sextos no hay tiempos muertos. */}
+        {showTimeouts && <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           {Array.from({ length: maxTO }).map((_, i) => {
             const to = halfTimeouts[i];
             return (
@@ -123,7 +133,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
             fontSize: '0.7rem', padding: '2px 5px', borderRadius: '4px', cursor: locked ? 'default' : 'pointer', fontWeight: 700, marginLeft: '2px',
             opacity: locked ? 0.4 : 1
           }}>+T</button>
-        </div>
+        </div>}
       </div>
     );
   };
@@ -170,14 +180,14 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)',
                 textAlign: 'center', whiteSpace: 'nowrap'
               }} title="Head Coach Challenge usado">
-                HCC - {hccA.period > 4 ? `OT${hccA.period - 4}` : hccA.period} - {hccA.minute}
+                HCC - {hccPeriod(hccA.period)} - {hccA.minute}
               </div>
             )}
           </div>
 
           {/* Timeout Timer Equipo A */}
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
-            {activeTimeout?.side === 'A' && (
+            {showTimeouts && activeTimeout?.side === 'A' && (
               <div 
                 onClick={locked ? undefined : onCancelTimeout}
                 style={{
@@ -210,7 +220,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0 1.5rem', borderLeft: '2px solid rgba(255,255,255,0.1)', borderRight: '2px solid rgba(255,255,255,0.1)', minWidth: '180px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              {period > 4 ? `OT${period - 4 > 1 ? period - 4 : ''}` : `PERIODO ${period}`}
+              {getPeriodLabel(matchFormat, period)}
             </span>
             <div onClick={locked ? undefined : onToggleTimer} title={locked ? 'Partido finalizado' : undefined} style={{
               fontSize: '2.2rem', fontFamily: 'monospace', color: 'white', cursor: locked ? 'default' : 'pointer',
@@ -235,7 +245,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
 
           {/* Timeout Timer Equipo B */}
           <div style={{ width: '60px', display: 'flex', justifyContent: 'center' }}>
-            {activeTimeout?.side === 'B' && (
+            {showTimeouts && activeTimeout?.side === 'B' && (
               <div 
                 onClick={locked ? undefined : onCancelTimeout}
                 style={{
@@ -266,7 +276,7 @@ const Scoreboard: React.FC<ScoreboardProps> = ({
                 boxShadow: '0 2px 8px rgba(0,0,0,0.3)', border: '1px solid rgba(0,0,0,0.1)',
                 textAlign: 'center', whiteSpace: 'nowrap'
               }} title="Head Coach Challenge usado">
-                HCC - {hccB.period > 4 ? `OT${hccB.period - 4}` : hccB.period} - {hccB.minute}
+                HCC - {hccPeriod(hccB.period)} - {hccB.minute}
               </div>
             )}
           </div>

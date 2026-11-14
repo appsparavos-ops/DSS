@@ -7,6 +7,7 @@ import CompactTeamList from './components/CompactTeamList';
 import ActionPanel from './components/ActionPanel';
 import { generatePDF } from './utils/pdfGenerator';
 import { formatPlayerFoul } from './utils/foulRules';
+import { allowsOvertime, allowsTimeouts, getRegulationPeriods, getTeamFoulIndex, hasMatchStarted, normalizeMatchFormat } from './utils/matchRules';
 import { useWakeLock } from './hooks/useWakeLock';
 import type { PlayerFoulType, CoachFoul, PendingAction, PlayerFoulSelection } from './types';
 
@@ -32,6 +33,7 @@ function App() {
     addHCC,
     adjustTimer,
     updateGameInfo,
+    setMatchFormat,
     startGame,
     goToSetup,
     deleteEvent,
@@ -66,6 +68,8 @@ function App() {
   const [showBackupModal, setShowBackupModal] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const finished = state.status === 'FINISHED';
+  const matchFormat = normalizeMatchFormat(state.matchFormat);
+  const finalRegulationPeriod = getRegulationPeriods(matchFormat);
 
   // FINALIZAR PARTIDO exige click largo (mantener presionado ~1.2 s) como
   // medida de seguridad contra toques accidentales; recién ahí aparece el
@@ -80,7 +84,7 @@ function App() {
     finishHoldTimer.current = setTimeout(() => {
       finishHoldTimer.current = null;
       setFinishHold(false);
-      if (state.teamA.score === state.teamB.score) {
+      if (allowsOvertime(matchFormat) && state.teamA.score === state.teamB.score) {
         alert('El partido está empatado. No se puede finalizar sin jugar una prórroga.');
       } else {
         setShowFinishConfirm(true);
@@ -299,7 +303,7 @@ function App() {
                     <button 
                       onClick={async () => {
                         // Exportar la plantilla guardada a su carpeta de plantillas
-                        await exportGameToFile(game.name, 'plantillas');
+                        await exportGameToFile(game.name, 'plantillas', game.data);
                       }}
                       style={{ background: '#eee', color: '#333', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem' }}
                       title="Exportar a archivo"
@@ -437,7 +441,7 @@ function App() {
             <button onClick={resetGame} style={{ background: '#fff0f0', color: '#ff4444' }} className="btn-primary">REINICIAR</button>
           </div>
         </header>
-        <SetupScreen teamA={state.teamA} teamB={state.teamB} onUpdateTeamName={updateTeamName} onUpdateTeamColor={updateTeamColor} onUpdateTeamTextColor={updateTeamTextColor} onUpdateTeamCoach={updateTeamCoach} onUpdateTeamLogo={updateTeamLogo} onUpdatePlayer={updatePlayer} onSetTeamPlayers={setTeamPlayers} onStartGame={startGame} savedTeams={savedTeams} onSaveTeamToCatalog={saveTeamToCatalog} onDeleteTeamFromCatalog={deleteTeamFromCatalog} onApplyTeam={applyTeamToSide} />
+        <SetupScreen teamA={state.teamA} teamB={state.teamB} matchFormat={matchFormat} formatLocked={hasMatchStarted(state)} onSetMatchFormat={setMatchFormat} onUpdateTeamName={updateTeamName} onUpdateTeamColor={updateTeamColor} onUpdateTeamTextColor={updateTeamTextColor} onUpdateTeamCoach={updateTeamCoach} onUpdateTeamLogo={updateTeamLogo} onUpdatePlayer={updatePlayer} onSetTeamPlayers={setTeamPlayers} onStartGame={startGame} savedTeams={savedTeams} onSaveTeamToCatalog={saveTeamToCatalog} onDeleteTeamFromCatalog={deleteTeamFromCatalog} onApplyTeam={applyTeamToSide} />
         {showGameInfo && renderGameInfoModal()}
         {isSaving && renderSaveModal()}
         {showLibrary && renderLibraryModal()}
@@ -457,7 +461,7 @@ function App() {
           
           {state.status === 'FINISHED' ? (
             <div style={{ background: '#333', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 600 }}>PARTIDO FINALIZADO</div>
-          ) : state.period >= 4 ? (
+          ) : state.period >= finalRegulationPeriod ? (
             <div style={{ display: 'flex', gap: '8px' }}>
               <button 
                 onPointerDown={startFinishHold}
@@ -481,12 +485,14 @@ function App() {
                   {finishHold ? 'SOSTENÉ PARA FINALIZAR…' : 'FINALIZAR PARTIDO (mantener presionado)'}
                 </span>
               </button>
-              <button onClick={nextPeriod} className="btn-primary" style={{ background: '#1976d2', color: 'white' }}>
-                JUGAR PRÓRROGA
-              </button>
+              {allowsOvertime(matchFormat) && (
+                <button onClick={nextPeriod} className="btn-primary" style={{ background: '#1976d2', color: 'white' }}>
+                  JUGAR PRÓRROGA
+                </button>
+              )}
             </div>
           ) : (
-            <button onClick={nextPeriod} className="btn-primary">SIGUIENTE PERIODO</button>
+            <button onClick={nextPeriod} className="btn-primary">{matchFormat === '6x7' ? 'SIGUIENTE SEXTO' : 'SIGUIENTE PERIODO'}</button>
           )}
           <button onClick={() => exportGameToFile()} style={{ background: '#eee', color: '#333' }} className="btn-primary" title="Exportar partido a archivo JSON">💾</button>
           <button
@@ -507,7 +513,7 @@ function App() {
               style={{ background: 'var(--fiba-green)', color: 'white' }} className="btn-primary" title="Comenzar un partido nuevo"
             >🆕 NUEVO PARTIDO</button>
           ) : (
-            <button onClick={goToSetup} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">✏️ EDITAR</button>
+            <button onClick={() => { setPendingAction(null); setSelectedTarget(null); goToSetup(); }} style={{ background: 'var(--fiba-yellow)', color: '#333' }} className="btn-primary">✏️ EDITAR</button>
           )}
         </div>
       </header>
@@ -519,11 +525,11 @@ function App() {
           teamAColor={state.teamA.color} teamATextColor={state.teamA.textColor}
           teamBColor={state.teamB.color} teamBTextColor={state.teamB.textColor}
           scoreA={state.teamA.score} scoreB={state.teamB.score} 
-          teamAFouls={state.teamA.foulsPerPeriod[Math.min(state.period-1, 3)]} 
-          teamBFouls={state.teamB.foulsPerPeriod[Math.min(state.period-1, 3)]} 
+          teamAFouls={state.teamA.foulsPerPeriod[getTeamFoulIndex(matchFormat, state.period)] || 0}
+          teamBFouls={state.teamB.foulsPerPeriod[getTeamFoulIndex(matchFormat, state.period)] || 0}
           timeoutsA={state.teamA.timeouts} timeoutsB={state.teamB.timeouts} 
           hccA={state.teamA.hcc} hccB={state.teamB.hcc}
-          period={state.period} timer={state.timer} isRunning={state.isRunning} 
+          matchFormat={matchFormat} period={state.period} timer={state.timer} isRunning={state.isRunning} 
           onToggleTimer={toggleTimer} onAddTimeout={addTimeout} 
           activeTimeout={state.activeTimeout}
           onCancelTimeout={cancelTimeout}
@@ -536,7 +542,7 @@ function App() {
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
           {/* LADO A */}
           <CompactTeamList 
-            teamName={state.teamA.name} players={state.teamA.players} side="A" color={state.teamA.color} textColor={state.teamA.textColor}
+            teamName={state.teamA.name} players={state.teamA.players} side="A" color={state.teamA.color} textColor={state.teamA.textColor} matchFormat={matchFormat}
             onMoveToEnd={(id) => movePlayerToEnd('A', id)}
             locked={finished}
             selectedPlayerId={selectedTarget?.side === 'A' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
@@ -620,6 +626,7 @@ function App() {
             selectedTeamTextColor={selectedTarget?.side === 'A' ? state.teamA.textColor : (selectedTarget?.side === 'B' ? state.teamB.textColor : undefined)}
             isSelectedPlayerCaptain={selectedPlayer?.isCaptain || false}
             canRequestTimeout={selectedTarget ? !isCoachAvailable(selectedTarget.side) : false}
+            timeoutsEnabled={allowsTimeouts(matchFormat)}
             onOpenHistory={() => setShowHistoryModal(true)}
             onAddPoint={(pts) => {
               if (selectedTarget?.type === 'PLAYER') {
@@ -673,7 +680,7 @@ function App() {
 
           {/* LADO B */}
           <CompactTeamList 
-            teamName={state.teamB.name} players={state.teamB.players} side="B" color={state.teamB.color} textColor={state.teamB.textColor}
+            teamName={state.teamB.name} players={state.teamB.players} side="B" color={state.teamB.color} textColor={state.teamB.textColor} matchFormat={matchFormat}
             onMoveToEnd={(id) => movePlayerToEnd('B', id)}
             locked={finished}
             selectedPlayerId={selectedTarget?.side === 'B' && selectedTarget.type === 'PLAYER' ? selectedTarget.id : undefined}
