@@ -24,8 +24,34 @@ URL final: `https://<tu-usuario>.github.io/DSS/`
 npm install
 npm run dev          # http://localhost:5173
 npm run build        # build producción en dist/
+npm test             # pruebas de importación CSV
 npm run preview      # preview de la build
 ```
+
+## Importar jugadores desde CSV
+
+En la preparación del partido, usa **IMPORTAR CSV** en cada equipo. El archivo
+lleva una línea por jugador, sin encabezados y con punto y coma como separador:
+
+```csv
+12345678;4;VALENTÍN PÉREZ
+;5;ANA MUÑOZ
+```
+
+Las columnas son licencia o DNI, número de camiseta y nombre; la licencia puede
+quedar vacía. En ese caso, conserva el primer punto y coma (por ejemplo,
+`;5;ANA MUÑOZ`). También se admite `5;ANA MUÑOZ` sin columna de DNI y, cuando
+el primer valor es un número de camiseta de uno o dos dígitos, esa misma forma
+con separadores vacíos adicionales al final.
+
+Se leen UTF-8 (con o sin BOM), ANSI/Windows-1252 y UTF-16 con BOM. La
+exportación genera UTF-8 con BOM para que Excel reconozca las tildes.
+
+Se importan como máximo 40 jugadores por equipo, sin selección previa: hay que
+marcar manualmente hasta 12 para el roster. Al importar, se reemplaza la lista
+de jugadores de ese equipo. Si el archivo original ya contiene `�`, la letra
+perdida no se puede recuperar automáticamente: vuelve a exportarlo desde los
+datos originales o corrige el nombre manualmente.
 
 ## Diagnóstico de instalación PWA
 

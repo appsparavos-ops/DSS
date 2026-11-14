@@ -14,7 +14,7 @@ import { STORAGE_KEYS, readJSON, writeJSON, migrateLegacyStorage } from '../serv
 import { generateMatchCode, pushMatch, pullMatch, type SyncStatus, type RecoverResult } from '../services/sync';
 
 const INITIAL_TIMER = 600; // 10 minutos por cuarto
-export const MAX_PLAYERS = 20; // filas disponibles para cargar jugadores en el armado del partido
+export const MAX_PLAYERS = 40; // filas disponibles por equipo para preparar el partido
 export const ROSTER_LIMIT = 12; // máximo de jugadores en el roster oficial (acta)
 
 const formatTime = (seconds: number): string => {
@@ -850,6 +850,10 @@ export const useGame = () => {
         id: Math.random().toString(36).substr(2, 9),
         points: 0,
         fouls: [],
+        // Cada partido debe definir su propia selección de jugadores.
+        isInRoster: false,
+        isStarter: false,
+        isCaptain: false,
         hasEntered: false,
         entryPeriod: undefined,
       }));

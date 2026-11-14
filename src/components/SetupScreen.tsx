@@ -1,6 +1,8 @@
 import React from 'react';
 import type { Team, Player, CatalogTeam } from '../types';
 import { MAX_PLAYERS, ROSTER_LIMIT } from '../hooks/useGame';
+import { decodeCsvText } from '../utils/csvEncoding';
+import { parseTeamCsvLine } from '../utils/teamCsv';
 import JerseyIcon from './JerseyIcon';
 
 interface SetupScreenProps {
@@ -79,7 +81,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       .map(p => [p.license || '', p.number, p.name].join(';'));
     if (rows.length === 0) return;
     const safeName = (team.name.trim() || `EQUIPO ${side}`).replace(/[\\/:*?"<>|]/g, '_');
-    const csv = rows.join('\n');
+    // El BOM permite que Excel reconozca UTF-8 al abrir el CSV.
+    const csv = '\uFEFF' + rows.join('\n');
 
     const win = window as any;
     if (win.electronAPI?.saveCsv) {
@@ -259,7 +262,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       </div>
 
       <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <h4 style={{ margin: '0', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plantilla de Jugadores</h4>
+        <h4 style={{ margin: '0', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Plantilla de Jugadores (hasta {MAX_PLAYERS})</h4>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <label className="btn-small" style={{ background: '#f0f0f0', color: '#555', cursor: 'pointer', fontSize: '0.7rem' }}>
             📥 IMPORTAR CSV
@@ -269,21 +272,20 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
               style={{ display: 'none' }} 
               onChange={(e) => {
                 const file = e.target.files?.[0];
+                // Permite volver a importar el mismo archivo después de corregirlo.
+                e.currentTarget.value = '';
                 if (file) {
                   const reader = new FileReader();
                   reader.onload = (event) => {
-                    const text = event.target?.result as string;
+                    const buffer = event.target?.result;
+                    if (!(buffer instanceof ArrayBuffer)) return;
+                    const text = decodeCsvText(buffer);
+                    if (text.includes('\uFFFD')) {
+                      alert('El CSV contiene caracteres ya reemplazados (�). Volvé a exportarlo desde los datos originales o corregí los nombres después de importarlo.');
+                    }
                     const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
                     const parsedPlayers = lines.map((line) => {
-                      const parts = line.split(';').map(s => s.trim());
-                      let license = '', number = '', name = '';
-                      if (parts.length >= 3) {
-                        [license, number, name] = parts;
-                      } else if (parts.length === 2) {
-                        [number, name] = parts;
-                      } else {
-                        name = parts[0];
-                      }
+                      const { license, number, name } = parseTeamCsvLine(line);
                       return {
                         id: Math.random().toString(36).substr(2, 9),
                         name: name ? name.toUpperCase() : '',
@@ -317,18 +319,11 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
                       });
                     }
 
-                    // Marcar automáticamente los primeros ROSTER_LIMIT con nombre como parte del roster
-                    let selected = 0;
-                    newPlayers.forEach(p => {
-                      if (p.name && selected < ROSTER_LIMIT) {
-                        p.isInRoster = true;
-                        selected++;
-                      }
-                    });
-                    
+                    // El roster se selecciona manualmente después de importar.
                     onSetTeamPlayers(side, newPlayers);
                   };
-                  reader.readAsText(file);
+                  reader.onerror = () => alert('No se pudo leer el archivo CSV. Intentá nuevamente.');
+                  reader.readAsArrayBuffer(file);
                 }
               }}
             />
